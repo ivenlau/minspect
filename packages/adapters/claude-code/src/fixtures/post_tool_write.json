@@ -1,0 +1,15 @@
+{
+  "session_id": "sess-abc123",
+  "transcript_path": "/tmp/cc/transcript.jsonl",
+  "cwd": "/home/dev/myrepo",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/home/dev/myrepo/src/jwt.ts",
+    "content": "export const jwt = { sign: (u) => '<token>' };\n"
+  },
+  "tool_response": {
+    "filePath": "/home/dev/myrepo/src/jwt.ts",
+    "success": true
+  }
+}

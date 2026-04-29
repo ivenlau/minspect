@@ -1,0 +1,133 @@
+.bar {
+  height: 28px;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-11);
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.chip {
+  font-family: var(--font-mono);
+}
+.chipOk {
+  color: var(--success);
+}
+.chipWarn {
+  color: var(--warn);
+}
+.chipMuted {
+  color: var(--text-2);
+}
+.sep {
+  color: var(--text-2);
+}
+.reloadBtn {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-3);
+  background: var(--warn);
+  color: #0d1117;
+  font-size: var(--fs-11);
+  font-weight: 500;
+}
+.reloadBtn:hover {
+  filter: brightness(1.08);
+}
+
+/* Poison chip is a button styled like the rest of the chips */
+.chipBtn {
+  all: unset;
+  cursor: pointer;
+}
+.chipBtn:hover {
+  filter: brightness(1.1);
+}
+
+/* Poison overlay drawer */
+.poisonBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 90;
+}
+.poisonPanel {
+  width: 720px;
+  max-width: 95%;
+  max-height: 60vh;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-modal);
+}
+.poisonHdr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-13);
+}
+.poisonSub {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.poisonClose {
+  all: unset;
+  cursor: pointer;
+  margin-left: auto;
+  color: var(--text-2);
+  padding: 0 4px;
+}
+.poisonClose:hover {
+  color: var(--text-0);
+}
+.poisonBody {
+  flex: 1;
+  overflow: auto;
+}
+.poisonEmpty {
+  padding: 16px;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+}
+.poisonRow {
+  display: grid;
+  grid-template-columns: 120px 70px 170px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: var(--fs-11);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+}
+.poisonType {
+  color: var(--warn);
+}
+.poisonSess {
+  color: var(--text-0);
+}
+.poisonWhen {
+  color: var(--text-2);
+}
+.poisonName {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

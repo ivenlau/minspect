@@ -1,0 +1,18 @@
+{
+  "session_id": "sess-abc123",
+  "transcript_path": "/tmp/cc/transcript.jsonl",
+  "cwd": "/home/dev/myrepo",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "MultiEdit",
+  "tool_input": {
+    "file_path": "/home/dev/myrepo/src/auth.ts",
+    "edits": [
+      { "old_string": "import { session }", "new_string": "import { jwt }" },
+      { "old_string": "session(user)", "new_string": "jwt.sign(user)" }
+    ]
+  },
+  "tool_response": {
+    "filePath": "/home/dev/myrepo/src/auth.ts",
+    "success": true
+  }
+}

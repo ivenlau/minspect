@@ -1,0 +1,163 @@
+.page {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.hdr {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.title {
+  margin: 0;
+  font-size: var(--fs-20);
+  font-weight: 600;
+}
+.pathText {
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  color: var(--text-2);
+  margin-left: var(--sp-2);
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.statCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6);
+}
+.statLabel {
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.statValue {
+  font-family: var(--font-mono);
+  font-size: var(--fs-18);
+  font-weight: 600;
+  color: var(--text-0);
+}
+
+.splitRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+  min-height: 400px;
+}
+
+.sessTbl {
+  display: flex;
+  flex-direction: column;
+  margin: calc(-1 * var(--sp-4));
+}
+.sessHdr {
+  display: grid;
+  grid-template-columns: 80px 100px 130px 50px 50px 30px;
+  gap: var(--sp-3);
+  padding: 6px 16px;
+  background: var(--bg-2);
+  font-size: var(--fs-10);
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: 0.8px;
+}
+.sessHdr > :nth-child(n + 4) {
+  text-align: right;
+}
+.sessBody {
+  flex: 1;
+  overflow: auto;
+  max-height: 360px;
+}
+.sessRow {
+  display: grid;
+  grid-template-columns: 80px 100px 130px 50px 50px 30px;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-12);
+  cursor: pointer;
+}
+.sessRow:hover {
+  background: var(--bg-hover);
+}
+.sessRow > :nth-child(n + 4) {
+  text-align: right;
+}
+.sessRowId {
+  font-family: var(--font-mono);
+  color: var(--text-0);
+}
+.sessRowAgent {
+  color: var(--text-1);
+}
+.sessRowStarted {
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  font-size: var(--fs-11);
+}
+.sessRowCol {
+  font-family: var(--font-mono);
+  color: var(--text-0);
+}
+.sessRowMuted {
+  color: var(--text-2);
+}
+
+.filesList {
+  display: flex;
+  flex-direction: column;
+  margin: calc(-1 * var(--sp-4));
+  max-height: 400px;
+  overflow: auto;
+}
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  font-size: var(--fs-12);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.fileRow:hover {
+  background: var(--bg-hover);
+}
+.filePath {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  color: var(--text-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* Pin ellipsis to the left, path tail stays readable */
+  text-align: left;
+}
+.fileCount {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.fileBar {
+  width: 60px;
+  height: 4px;
+  background: var(--bg-2);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.fileBarFill {
+  height: 4px;
+  background: var(--accent);
+  border-radius: var(--radius-2);
+}

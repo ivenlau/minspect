@@ -1,0 +1,13 @@
+.row {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  width: 100%;
+  text-align: left;
+  outline-offset: -2px;
+  /* display intentionally omitted — caller's className supplies it
+   * (flex / grid / block). `all: unset` cleared the button default. */
+}
+.row:focus-visible {
+  outline: 2px solid var(--accent);
+}

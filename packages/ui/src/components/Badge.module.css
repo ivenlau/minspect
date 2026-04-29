@@ -1,0 +1,29 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: var(--fs-10);
+  font-weight: 500;
+  border-radius: var(--radius-3);
+  letter-spacing: 0.2px;
+}
+.info {
+  background: var(--bg-2);
+  color: var(--text-0);
+}
+.warn {
+  background: var(--warn);
+  color: #0d1117;
+}
+.danger {
+  background: var(--danger);
+  color: #fff;
+}
+.success {
+  background: var(--success);
+  color: #0d1117;
+}
+.muted {
+  background: var(--bg-2);
+  color: var(--text-2);
+}

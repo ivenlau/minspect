@@ -1,0 +1,57 @@
+.hunk {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-4);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  background: var(--bg-0);
+}
+.head {
+  padding: 4px 10px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: var(--fs-10);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.body {
+  display: block;
+}
+.row {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 10px;
+}
+.del {
+  background: var(--diff-del-bg);
+}
+.add {
+  background: var(--diff-add-bg);
+}
+.ln {
+  width: 28px;
+  text-align: right;
+  color: var(--text-2);
+  flex-shrink: 0;
+  user-select: none;
+}
+.sign {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+.signDel {
+  color: var(--danger);
+}
+.signAdd {
+  color: var(--success);
+}
+.code {
+  color: var(--text-0);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}

@@ -1,0 +1,239 @@
+.outer {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.inspectorPane {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+/* File toolbar */
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.fileBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  font-weight: 500;
+  color: var(--text-0);
+}
+.fileIcon {
+  color: var(--accent);
+}
+.meta {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.spacer {
+  flex: 1;
+}
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-4);
+  background: transparent;
+  color: var(--text-1);
+  font-size: var(--fs-11);
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+.btnActive {
+  background: var(--bg-selected);
+  color: var(--text-0);
+  border-color: var(--accent);
+}
+.btnBadge {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+  padding: 0 4px;
+  background: var(--bg-2);
+  border-radius: var(--radius-3);
+}
+.revisionsWrap {
+  position: relative;
+  display: inline-flex;
+}
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-4);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  min-width: 240px;
+}
+.searchBox:focus-within {
+  border-color: var(--accent);
+  color: var(--text-0);
+}
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-0);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  padding: 2px 0;
+}
+.searchInput::placeholder {
+  color: var(--text-2);
+}
+.searchCounter {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+.searchNavBtn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-3);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.searchNavBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+.searchNavBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Heat strip across the top of the blame body */
+.heatStrip {
+  display: flex;
+  gap: 1px;
+  height: 4px;
+  flex-shrink: 0;
+}
+.heatSeg {
+  flex: 1;
+}
+
+/* Blame table.
+   `.table` is the scroll container. Virtualization uses absolute
+   positioning inside, so NO padding here — it would throw off the
+   scrollTop math. Give a breathing gap by making each row's own box
+   slightly padded instead. */
+.table {
+  flex: 1;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  position: relative;
+}
+.row {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.row:hover {
+  background: var(--bg-hover);
+}
+.rowSelected {
+  background: var(--bg-selected);
+}
+.rowSameTurn {
+  background: rgba(88, 166, 255, 0.06);
+}
+/* In-file search highlighting. `rowMatch` is a soft yellow wash for every
+ * hit; `rowActiveMatch` is the currently-focused one (from next/prev
+ * navigation) — stronger wash + left-border accent so it stands out when
+ * the table auto-scrolls to it. */
+.rowMatch {
+  background: rgba(210, 153, 34, 0.15);
+}
+.rowActiveMatch {
+  background: rgba(210, 153, 34, 0.35);
+  box-shadow: inset 2px 0 0 0 var(--warn);
+}
+/* Revisions highlight — blue wash to visually distinguish from search
+ * (yellow) and from the existing same-turn hover (also blue-tinted but
+ * much lighter). `rowRevisionActive` is the first line of the selected
+ * edit; the table scrolls to it. */
+.rowRevision {
+  background: rgba(88, 166, 255, 0.18);
+}
+.rowRevisionActive {
+  background: rgba(88, 166, 255, 0.32);
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+.ln {
+  width: 48px;
+  text-align: right;
+  padding-right: 6px;
+  color: var(--text-2);
+  flex-shrink: 0;
+  user-select: none;
+}
+.lnSelected {
+  color: var(--accent);
+}
+.bar {
+  width: 3px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.turn {
+  width: 110px;
+  padding: 0 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.code {
+  flex: 1;
+  min-width: 0;
+  white-space: pre;
+  color: var(--text-0);
+}
+.codeUser {
+  color: var(--text-1);
+  font-style: italic;
+}
+
+/* Empty state */
+.empty {
+  padding: 24px;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+}

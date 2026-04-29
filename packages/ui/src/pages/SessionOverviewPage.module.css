@@ -1,0 +1,147 @@
+.page {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow: auto;
+}
+.hdr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.title {
+  margin: 0;
+  font-size: var(--fs-20);
+  font-weight: 600;
+}
+.chips {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+}
+.chip {
+  padding: 2px 8px;
+  background: var(--bg-2);
+  border-radius: var(--radius-3);
+  font-family: var(--font-mono);
+  color: var(--text-1);
+}
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.statCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6);
+}
+.statLabel {
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.statValue {
+  font-family: var(--font-mono);
+  font-size: var(--fs-18);
+  font-weight: 600;
+  color: var(--text-0);
+}
+
+/* Turn timeline */
+.turnList {
+  display: flex;
+  flex-direction: column;
+}
+.turnRow {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-12);
+}
+.turnRow:last-child {
+  border-bottom: none;
+}
+.turnRow:hover {
+  background: var(--bg-hover);
+}
+.turnIdx {
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  font-weight: 600;
+}
+.turnBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.turnPrompt {
+  color: var(--text-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.turnDots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  color: var(--text-2);
+  font-size: var(--fs-11);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.dotEdit {
+  background: var(--accent);
+}
+.dotBash {
+  background: var(--warn);
+}
+.dotRead {
+  background: var(--text-2);
+}
+.dotOther {
+  background: var(--violet);
+}
+.turnMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+}
+.badgeChip {
+  padding: 1px 6px;
+  font-size: var(--fs-10);
+  font-weight: 500;
+  border-radius: var(--radius-2);
+}
+.badgeChipWarn {
+  background: var(--warn);
+  color: #0d1117;
+}
+.badgeChipDanger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.empty {
+  padding: 32px;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: center;
+}

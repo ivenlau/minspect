@@ -1,0 +1,33 @@
+{
+  "name": "@minspect/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "minspect": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "bundle": "node scripts/bundle.mjs",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@minspect/adapter-claude-code": "workspace:*",
+    "@minspect/adapter-codex": "workspace:*",
+    "@minspect/adapter-opencode": "workspace:*",
+    "@minspect/collector": "workspace:*",
+    "@minspect/core": "workspace:*",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

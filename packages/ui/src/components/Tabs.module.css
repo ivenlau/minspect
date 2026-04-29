@@ -1,0 +1,25 @@
+.bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-2);
+  border-radius: var(--radius-4);
+}
+.tab {
+  padding: 4px 12px;
+  border-radius: var(--radius-3);
+  font-size: var(--fs-11);
+  color: var(--text-2);
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+}
+.tab:hover {
+  color: var(--text-0);
+}
+.active {
+  background: var(--bg-hover);
+  color: var(--text-0);
+  font-weight: 500;
+}

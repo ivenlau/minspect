@@ -1,0 +1,4 @@
+# minispec local runtime state (not shared across a team).
+# These files live next to your contract but should never enter git.
+.paused
+*.bak.*

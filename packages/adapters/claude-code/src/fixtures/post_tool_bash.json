@@ -1,0 +1,16 @@
+{
+  "session_id": "sess-abc123",
+  "transcript_path": "/tmp/cc/transcript.jsonl",
+  "cwd": "/home/dev/myrepo",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "npm test",
+    "description": "Run tests"
+  },
+  "tool_response": {
+    "stdout": "3 passing",
+    "stderr": "",
+    "exitCode": 0
+  }
+}

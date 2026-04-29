@@ -1,0 +1,17 @@
+{
+  "session_id": "sess-abc123",
+  "transcript_path": "/tmp/cc/transcript.jsonl",
+  "cwd": "/home/dev/myrepo",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/home/dev/myrepo/src/auth.ts",
+    "old_string": "export function login(user) { return session(user) }",
+    "new_string": "export function login(user) { return jwt.sign(user) }",
+    "replace_all": false
+  },
+  "tool_response": {
+    "filePath": "/home/dev/myrepo/src/auth.ts",
+    "success": true
+  }
+}

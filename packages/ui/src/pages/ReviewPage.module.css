@@ -1,0 +1,269 @@
+.outer {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.turnNav {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
+  overflow: auto;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+}
+.turnNavHdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+}
+.turnNavTitle {
+  font-size: var(--fs-10);
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--text-2);
+  text-transform: uppercase;
+}
+.turnNavSpacer {
+  flex: 1;
+}
+.turnNavCount {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.turnNavRow {
+  padding: 6px 16px;
+  font-size: var(--fs-12);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.turnNavRow:hover {
+  background: var(--bg-hover);
+}
+.turnNavRowActive {
+  background: var(--bg-selected);
+}
+.turnNavBar {
+  width: 2px;
+  height: 24px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+.turnNavIdx {
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  width: 22px;
+  flex-shrink: 0;
+}
+.turnNavIdxActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+.turnNavBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.turnNavPrompt {
+  color: var(--text-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.turnNavMeta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.turnNavEllipsis {
+  padding: 6px 16px;
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-0);
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.filterInput {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-4);
+  background: transparent;
+  color: var(--text-0);
+  font-size: var(--fs-11);
+}
+.filterInput input {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  min-width: 0;
+}
+.filterInput.wide {
+  flex: 1;
+  min-width: 180px;
+  max-width: 360px;
+}
+.filterInput.narrow {
+  width: 220px;
+}
+.filterSpacer {
+  flex: 1;
+}
+.filterResults {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-4);
+  background: transparent;
+  color: var(--text-0);
+  font-size: var(--fs-11);
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.list {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-6);
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+}
+.cardDanger {
+  border-color: var(--danger);
+}
+.cardHdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cardIdx {
+  padding: 3px 8px;
+  background: var(--bg-2);
+  border-radius: var(--radius-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  color: var(--text-0);
+}
+.cardPrompt {
+  font-size: var(--fs-13);
+  font-weight: 500;
+  color: var(--text-0);
+  flex: 1;
+  min-width: 0;
+}
+.cardHdrBadges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cardMeta {
+  display: flex;
+  gap: 12px;
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.cardMetaSpacer {
+  flex: 1;
+}
+.cardExp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border-radius: var(--radius-4);
+}
+.cardExpL {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--text-2);
+}
+.cardExpT {
+  font-size: var(--fs-12);
+  color: var(--text-1);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.cardEditHdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.cardEditIcon {
+  color: var(--accent);
+}
+.cardEditFile {
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-0);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardEditTool {
+  padding: 1px 6px;
+  background: var(--bg-2);
+  color: var(--accent);
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+}
+
+.empty {
+  padding: 32px;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: center;
+}

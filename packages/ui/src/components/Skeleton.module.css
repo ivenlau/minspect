@@ -1,0 +1,37 @@
+.sk {
+  background: linear-gradient(90deg, var(--bg-1) 0%, var(--bg-2) 50%, var(--bg-1) 100%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-3);
+  animation: skShimmer 1.4s ease-in-out infinite;
+  display: block;
+}
+@keyframes skShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Live pulsing dot for in-progress sessions */
+.live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  display: inline-block;
+  animation: livePulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.5);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0);
+  }
+}

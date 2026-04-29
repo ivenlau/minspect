@@ -1,0 +1,156 @@
+/* Metrics below intentionally mirror components/Tree.module.css so the
+ * workspaces sidebar reads as "the same kind of tree" as the file tree
+ * (same row height, same indent rhythm, same chevron + icon sizes). */
+.root {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+}
+.title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--text-2);
+}
+.spacer {
+  flex: 1;
+}
+.addBtn {
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default; /* no add flow yet */
+}
+.refreshBtn {
+  all: unset;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-3);
+  display: inline-flex;
+  align-items: center;
+}
+.refreshBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+.refreshBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.refreshBtn:disabled {
+  cursor: progress;
+}
+.refreshBtnBusy {
+  color: var(--accent);
+}
+.refreshBtnError {
+  color: var(--danger);
+}
+.spin {
+  animation: mspin 1s linear infinite;
+}
+@keyframes mspin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: var(--fs-12);
+  cursor: pointer;
+  user-select: none;
+}
+.wsRow:hover {
+  background: var(--bg-hover);
+}
+.wsRowActive {
+  background: var(--bg-selected);
+}
+.chev {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--text-2);
+  transition: transform 80ms ease;
+}
+.chevOpen {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+.folder {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--text-1);
+}
+.folderActive {
+  color: var(--accent);
+}
+.name {
+  flex: 1;
+  font-family: var(--font-mono);
+  color: var(--text-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nameActive {
+  font-weight: 500;
+}
+.count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+
+/* Sessions are depth=1 leaves under a workspace. Tree's depth-1 indent is
+ * 12 (base) + 16 (per-level) = 28px; pad a bit more to visually offset
+ * from the workspace row without an extra bullet. */
+.sessRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 30px;
+  font-size: var(--fs-11);
+  cursor: pointer;
+}
+.sessRow:hover {
+  background: var(--bg-hover);
+}
+.sessRowActive {
+  background: var(--bg-hover);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-2);
+  flex-shrink: 0;
+}
+.sessId {
+  flex: 1;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sessTime {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}

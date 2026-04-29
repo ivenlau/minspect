@@ -1,0 +1,95 @@
+/* Design tokens. Names mirror the Pencil mockup variables so the visual
+ * reference and runtime are easy to cross-check.
+ *
+ * Theme: dark by default; light variant is opt-in via `[data-theme="light"]`
+ * on the document root. Only the surface / border / text / intent colors
+ * flip — typography, spacing, radii, and shadows are theme-agnostic. */
+:root {
+  /* surfaces */
+  --bg-0: #0d1117;
+  --bg-1: #161b22;
+  --bg-2: #1f2428;
+  --bg-hover: #21262d;
+  --bg-selected: rgba(31, 111, 235, 0.15);
+
+  /* borders */
+  --border: #30363d;
+  --border-subtle: #21262d;
+
+  /* text */
+  --text-0: #e6edf3;
+  --text-1: #8b949e;
+  --text-2: #6e7681;
+
+  /* intent */
+  --accent: #58a6ff;
+  --success: #3fb950;
+  --warn: #d29922;
+  --danger: #f85149;
+  --violet: #a78bfa;
+
+  /* diff backgrounds */
+  --diff-add-bg: rgba(63, 185, 80, 0.12);
+  --diff-del-bg: rgba(248, 81, 73, 0.12);
+
+  /* shadow tuned for dark — overridden below for light */
+  --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  /* type */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+
+  /* space scale (4 / 8 / 12 / 16 / 20 / 24) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* radii */
+  --radius-2: 2px;
+  --radius-3: 3px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+
+  /* elevation */
+  --shadow-modal: var(--shadow-elevated), 0 0 0 1px var(--border);
+}
+
+/* Light theme — GitHub-inspired light palette. Swaps only the 15 surface /
+ * border / text / intent / diff tokens; everything else (typography, space,
+ * radii) stays identical. */
+:root[data-theme="light"] {
+  --bg-0: #ffffff;
+  --bg-1: #f6f8fa;
+  --bg-2: #eaeef2;
+  --bg-hover: #f3f4f6;
+  --bg-selected: rgba(9, 105, 218, 0.1);
+
+  --border: #d0d7de;
+  --border-subtle: #eaeef2;
+
+  --text-0: #1f2328;
+  --text-1: #656d76;
+  --text-2: #848d97;
+
+  --accent: #0969da;
+  --success: #1a7f37;
+  --warn: #9a6700;
+  --danger: #cf222e;
+  --violet: #8250df;
+
+  --diff-add-bg: rgba(46, 164, 79, 0.15);
+  --diff-del-bg: rgba(207, 34, 46, 0.15);
+
+  --shadow-elevated: 0 8px 24px rgba(140, 149, 159, 0.3);
+}

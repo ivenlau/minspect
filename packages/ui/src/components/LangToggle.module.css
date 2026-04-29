@@ -1,0 +1,33 @@
+.btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  height: 22px;
+  border-radius: var(--radius-4);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  cursor: pointer;
+  user-select: none;
+}
+.btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.seg {
+  color: var(--text-2);
+}
+.segActive {
+  color: var(--text-0);
+  font-weight: 600;
+}
+.sep {
+  color: var(--text-2);
+  opacity: 0.6;
+}

@@ -1,0 +1,33 @@
+.root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.side {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
+  overflow: auto;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-0);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.inspector {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-left: 1px solid var(--border);
+  overflow: auto;
+}
+
+.shellRoot {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

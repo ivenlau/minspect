@@ -1,0 +1,77 @@
+.bar {
+  height: 48px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  cursor: default;
+  user-select: none;
+}
+.brand a {
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.brandDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-12);
+  color: var(--text-1);
+}
+.crumbSep {
+  color: var(--text-2);
+}
+.crumbCurrent {
+  color: var(--text-0);
+  font-weight: 500;
+}
+.crumb a {
+  color: var(--text-1);
+}
+.crumb a:hover {
+  color: var(--text-0);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.portPill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-2);
+  border-radius: var(--radius-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  color: var(--text-1);
+}
+.portDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.portDotDown {
+  background: var(--danger);
+}

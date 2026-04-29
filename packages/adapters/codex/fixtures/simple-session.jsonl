@@ -1,0 +1,14 @@
+{"timestamp":"2026-04-01T10:00:00.000Z","type":"session_meta","payload":{"id":"01-test-session-uuid","timestamp":"2026-04-01T10:00:00.000Z","cwd":"/ws/demo","originator":"codex_cli_rs","cli_version":"0.104.0","source":"cli","model_provider":"mify"}}
+{"timestamp":"2026-04-01T10:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1","model_context_window":256000,"collaboration_mode_kind":"default"}}
+{"timestamp":"2026-04-01T10:00:01.100Z","type":"event_msg","payload":{"type":"user_message","message":"hello","images":[],"local_images":[],"text_elements":[]}}
+{"timestamp":"2026-04-01T10:00:02.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Hi there!","phase":null}}
+{"timestamp":"2026-04-01T10:00:02.100Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-1","last_agent_message":"Hi there!"}}
+{"timestamp":"2026-04-01T10:00:10.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-2","model_context_window":256000,"collaboration_mode_kind":"default"}}
+{"timestamp":"2026-04-01T10:00:10.100Z","type":"event_msg","payload":{"type":"user_message","message":"rename greeting","images":[],"local_images":[],"text_elements":[]}}
+{"timestamp":"2026-04-01T10:00:11.000Z","type":"event_msg","payload":{"type":"agent_reasoning","text":"I will edit hello.txt to say Hi."}}
+{"timestamp":"2026-04-01T10:00:11.500Z","type":"response_item","payload":{"type":"function_call","name":"shell_command","arguments":"{\"command\":\"ls\",\"workdir\":\"/ws/demo\"}","call_id":"call_shell1"}}
+{"timestamp":"2026-04-01T10:00:11.800Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_shell1","output":"Exit code: 0\nWall time: 0.1 seconds\nOutput:\nhello.txt\n"}}
+{"timestamp":"2026-04-01T10:00:12.000Z","type":"response_item","payload":{"type":"custom_tool_call","status":"completed","call_id":"call_patch1","name":"apply_patch","input":"*** Begin Patch\n*** Update File: hello.txt\n@@\n-hello\n+Hi\n*** End Patch"}}
+{"timestamp":"2026-04-01T10:00:12.300Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_patch1","output":"{\"output\":\"Success\",\"metadata\":{\"exit_code\":0,\"duration_seconds\":0.1}}"}}
+{"timestamp":"2026-04-01T10:00:13.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Done — renamed greeting.","phase":null}}
+{"timestamp":"2026-04-01T10:00:13.100Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-2","last_agent_message":"Done — renamed greeting."}}

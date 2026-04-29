@@ -1,0 +1,328 @@
+.page {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.hdr {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.title {
+  margin: 0;
+  font-size: var(--fs-20);
+  font-weight: 600;
+}
+.spacer {
+  flex: 1;
+}
+/* Activity card */
+.activity {
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.actHdr {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+.actTitle {
+  font-size: var(--fs-12);
+  font-weight: 500;
+  color: var(--text-1);
+}
+.actBig {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-0);
+}
+.actUnit {
+  font-size: var(--fs-12);
+  color: var(--text-2);
+}
+.actDelta {
+  font-size: var(--fs-11);
+}
+.deltaUp {
+  color: var(--success);
+}
+.deltaDown {
+  color: var(--danger);
+}
+.deltaNone {
+  color: var(--text-2);
+}
+.actLegend {
+  margin-left: auto;
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+/* Chart frame: a tiny y-axis scale on the left + the bar grid on the right.
+ * The y-axis is 3 ticks (max / mid / 0) arranged vertically — cheap way to
+ * give the eye a reference without the weight of a full grid. */
+.chartWrap {
+  display: flex;
+  flex: 1;
+  min-height: 120px;
+  gap: 8px;
+}
+.yAxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+  flex-shrink: 0;
+  min-width: 20px;
+  text-align: right;
+}
+.yTick {
+  line-height: 1;
+}
+.chartBody {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border-subtle);
+  padding-left: 4px;
+  padding-bottom: 2px;
+}
+/* Each bar lives in a column that takes equal slice of the chart — so
+ * hover events fire anywhere in the column, not just on the thin bar. */
+.barCol {
+  all: unset;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  min-width: 2px;
+}
+.barCol:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-2);
+}
+.bar {
+  width: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-2);
+  min-height: 4px;
+  transition: opacity 100ms ease, background 100ms ease;
+}
+.barHover {
+  opacity: 1 !important;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.barEmpty {
+  width: 100%;
+  background: var(--bg-2);
+  border-radius: var(--radius-2);
+  height: 6px;
+}
+.barEmptyHover {
+  background: var(--border);
+}
+
+/* Tooltip — absolute-positioned above the hovered column, auto-nudged
+ * left/right at the edges so it doesn't clip out of the card. */
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  box-shadow: var(--shadow-elevated);
+  white-space: nowrap;
+  z-index: 5;
+  pointer-events: none;
+}
+.tooltipLeft {
+  left: 0;
+  transform: none;
+}
+.tooltipRight {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.tooltipDate {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.tooltipCount {
+  font-size: var(--fs-11);
+  color: var(--text-0);
+  font-weight: 500;
+}
+
+/* 3-up row */
+.row3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--sp-4);
+  min-height: 0;
+}
+.row3 > * {
+  min-height: 200px;
+}
+
+/* Top workspaces / agents */
+.miniList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.miniRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.miniHdr {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-12);
+}
+.miniName {
+  color: var(--text-0);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.miniNameDim {
+  color: var(--text-1);
+  font-weight: 400;
+}
+.miniVal {
+  font-family: var(--font-mono);
+}
+.miniPct {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+.miniBar {
+  height: 4px;
+  background: var(--bg-2);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+}
+.miniBarFill {
+  height: 4px;
+  background: var(--accent);
+  border-radius: var(--radius-2);
+}
+.miniBarAgent {
+  background: var(--violet);
+}
+
+/* Alerts */
+.alertList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.alertRow {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border-radius: var(--radius-4);
+  border: 1px solid var(--border-subtle);
+}
+.alertBar {
+  width: 2px;
+  min-height: 28px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+.alertBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.alertTitle {
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-0);
+}
+.alertSub {
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}
+
+/* Recent feed */
+.feed {
+  display: flex;
+  flex-direction: column;
+}
+.feedRow {
+  display: grid;
+  grid-template-columns: 70px 130px 100px 90px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-11);
+}
+.feedRow:last-child {
+  border-bottom: none;
+}
+.feedTime {
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+.feedKindSess {
+  font-family: var(--font-mono);
+  color: var(--success);
+}
+.feedKindTool {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+.feedKindCodex {
+  font-family: var(--font-mono);
+  color: var(--violet);
+}
+.feedAgent {
+  color: var(--text-1);
+}
+.feedSess {
+  font-family: var(--font-mono);
+  color: var(--text-0);
+}
+.feedDetail {
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feedWs {
+  font-size: var(--fs-10);
+  color: var(--accent);
+}

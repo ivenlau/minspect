@@ -1,0 +1,38 @@
+# Node / pnpm
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+dist-bundle/
+**/dist-bundle/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+**/coverage/
+
+# Local runtime data (collector state, SQLite, queues)
+.minspect/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Secrets / env (future-proof even though none exist today)
+.env
+.env.*
+!.env.example
+
+# Local-only agent settings. `.claude/settings.local.json` is a per-user
+# permission allowlist that Claude Code maintains; never share it.
+.claude/settings.local.json
+.agents/settings.local.json

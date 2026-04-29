@@ -1,0 +1,248 @@
+.outer {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* Scrubber strip */
+.scrubWrap {
+  height: 96px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 20px;
+}
+.scrubHdr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scrubTitle {
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--text-1);
+}
+.scrubMeta {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.scrubSpacer {
+  flex: 1;
+}
+.scrubCtrls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.ctrlBtn {
+  width: 28px;
+  height: 24px;
+  background: var(--bg-2);
+  border-radius: var(--radius-3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 0;
+  color: var(--text-1);
+  cursor: pointer;
+}
+.ctrlBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+.ctrlBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ctrlBtnPrimary {
+  background: var(--accent);
+  color: #0d1117;
+}
+.ctrlBtnPrimary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+.kbHint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--text-2);
+  margin-left: 8px;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+}
+.dot {
+  flex: 1;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+.dotHasChange {
+  background: rgba(88, 166, 255, 0.5);
+}
+.dotDanger {
+  background: rgba(248, 81, 73, 0.6);
+}
+.dotCurrent {
+  width: 20px !important;
+  height: 20px !important;
+  flex: 0 0 20px;
+  border: 3px solid var(--bg-0);
+  outline: 1px solid var(--accent);
+}
+
+/* Body split */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-0);
+}
+.inspectorPane {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-left: 1px solid var(--border);
+  overflow: auto;
+}
+
+/* Step card */
+.stepCard {
+  padding: 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.stepHdr {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.stepBadge {
+  padding: 3px 8px;
+  border-radius: var(--radius-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+.stepBadgeTurn {
+  background: var(--warn);
+  color: #0d1117;
+}
+.stepBadgeTool {
+  background: var(--bg-2);
+  color: var(--accent);
+}
+.stepCounter {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.stepSpacer {
+  flex: 1;
+}
+.stepPrompt {
+  font-size: var(--fs-13);
+  font-weight: 500;
+  color: var(--text-0);
+}
+.stepExp {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border-radius: var(--radius-4);
+}
+.stepExpBar {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.stepExpBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.stepExpL {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--text-2);
+}
+.stepExpT {
+  font-size: var(--fs-12);
+  color: var(--text-1);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-4);
+  background: transparent;
+  color: var(--text-1);
+  font-size: var(--fs-11);
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+
+.editHdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  margin-top: 6px;
+}
+.editIcon {
+  color: var(--accent);
+}
+.editFile {
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.empty {
+  padding: 32px;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: center;
+}
