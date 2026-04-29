@@ -7,10 +7,12 @@
 # Flags:
 #   -Version X    install @ivenlau/minspect@X instead of latest
 #   -SkipInit     don't print the `minspect init` hint at the end
+#   -Verbose      show npm's warn / deprecated / notice output (default: errors only)
 
 param(
     [string]$Version = "",
-    [switch]$SkipInit
+    [switch]$SkipInit,
+    [switch]$Verbose
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,8 +40,11 @@ if ($nodeMajor -lt 20) {
 $pkg = if ($Version) { "@ivenlau/minspect@$Version" } else { "@ivenlau/minspect" }
 
 Write-Host "Installing $pkg via npm..."
-# npm on Windows prints progress to stderr; just let it through.
-npm install -g $pkg
+# Default to --loglevel=error so the first-time install isn't buried under
+# transitive peerOptional / deprecated warnings from tree-sitter and
+# prebuild-install. Pass -Verbose to get the full noise back for debugging.
+$npmLogLevel = if ($Verbose) { 'notice' } else { 'error' }
+npm install -g $pkg --loglevel=$npmLogLevel
 if ($LASTEXITCODE -ne 0) {
     Die "npm install failed (exit $LASTEXITCODE)"
 }

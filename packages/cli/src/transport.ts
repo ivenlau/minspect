@@ -1,6 +1,6 @@
-import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import type { Event } from '@minspect/core';
+import { spawnServeDetached } from './commands/serve.js';
 import { readConfig } from './config.js';
 import { getStateFilePath } from './paths.js';
 import { enqueueEvent, listQueued, quarantineQueued, readQueued, removeQueued } from './queue.js';
@@ -65,19 +65,10 @@ async function postOne(
 function maybeSpawnDaemon(root?: string): void {
   const cfg = readConfig(root);
   if (!cfg.auto_spawn_daemon) return;
-  const binPath = process.argv[1];
-  if (!binPath) return;
-  try {
-    spawn(process.execPath, [binPath, 'serve', '--quiet'], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-      env: { ...process.env, MINSPECT_SPAWNED_BY: 'hook' },
-    }).unref();
-  } catch {
-    // Hook never blocks. If spawn fails the event is already on its way to
-    // the disk queue below; daemon will drain on next manual start.
-  }
+  // Hook never blocks. spawnServeDetached swallows its own errors and
+  // returns null — on failure the event is already on its way to the disk
+  // queue below, and the daemon drains on next manual start.
+  spawnServeDetached({ spawnedBy: 'hook' });
 }
 
 // Try to POST event. If collector is down/unreachable, queue to disk.

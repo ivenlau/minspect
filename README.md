@@ -38,8 +38,10 @@ Windows (PowerShell):
 iwr https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.ps1 | iex
 ```
 
-Both scripts check Node ≥ 20 and run `npm install -g @ivenlau/minspect`. If you prefer
-`npm` directly:
+Both scripts check Node ≥ 20 and run `npm install -g @ivenlau/minspect`. Output is
+limited to errors by default — pass `--verbose` (PowerShell: `-Verbose`) if you need
+npm's full `peerOptional` / `deprecated` warnings for debugging. If you prefer `npm`
+directly:
 
 ```bash
 npm install -g @ivenlau/minspect

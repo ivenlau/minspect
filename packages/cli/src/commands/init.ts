@@ -8,7 +8,13 @@ import { runImportCodexAll } from './import-codex.js';
 import { runInstallOpenCode } from './install-opencode.js';
 import { installPostCommitHook } from './install-post-commit-hook.js';
 import { runInstall } from './install.js';
-import { runServe } from './serve.js';
+import {
+  type RunningDaemon,
+  findRunningDaemon,
+  openBrowser,
+  spawnServeDetached,
+  waitForDaemonReady,
+} from './serve.js';
 
 // Orchestrator that takes a user from "just installed minspect" to "UI open,
 // agents wired up, daemon running" in one command. Every step is optional
@@ -38,6 +44,12 @@ export interface InitOptions {
   skipServe?: boolean;
   // Suppress the browser open. Default true during tests.
   noOpen?: boolean;
+  // Test seams for the detach-spawn flow. Defaults call the real helpers
+  // in serve.ts; tests inject stubs to avoid touching real processes.
+  findRunningDaemon?: (stateRoot?: string) => Promise<RunningDaemon | null>;
+  spawnServe?: () => { pid: number } | null;
+  waitForDaemon?: (stateRoot?: string) => Promise<RunningDaemon | null>;
+  openBrowser?: (url: string) => void;
 }
 
 export interface InitResult {
@@ -213,17 +225,41 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   }
 
   // --- Start the daemon ---------------------------------------------------
+  // Detach-spawn so `minspect init` can exit cleanly and leave the daemon
+  // running in the background. The user can close this terminal without
+  // killing the server (the old inline `runServe` held the daemon hostage
+  // to the cmd window).
   if (!options.skipServe) {
     write('');
-    write('starting daemon...');
-    // Let serve's existing "reuse running daemon" check handle the
-    // already-running case — no special casing here.
-    const handle = await runServe({
-      stateRoot: options.stateRoot,
-      noOpen: options.noOpen ?? false,
-    });
-    result.daemonStarted = true;
-    result.port = handle.port;
+    const find = options.findRunningDaemon ?? findRunningDaemon;
+    const spawnFn = options.spawnServe ?? (() => spawnServeDetached({ spawnedBy: 'init' }));
+    const waitFn =
+      options.waitForDaemon ?? ((root) => waitForDaemonReady({ stateRoot: root, timeoutMs: 5000 }));
+    const openFn = options.openBrowser ?? ((url: string) => void openBrowser(url));
+
+    const existing = await find(options.stateRoot);
+    if (existing) {
+      write(`daemon already running on http://127.0.0.1:${existing.port} (pid ${existing.pid})`);
+      result.daemonStarted = true;
+      result.port = existing.port;
+      if (!(options.noOpen ?? false)) openFn(`http://127.0.0.1:${existing.port}`);
+    } else {
+      write('starting daemon (background)...');
+      const spawned = spawnFn();
+      if (!spawned) {
+        write("  couldn't spawn daemon; run 'minspect serve' manually to see errors");
+      } else {
+        const ready = await waitFn(options.stateRoot);
+        if (!ready) {
+          write("  daemon did not come up within 5s; run 'minspect serve' manually to see errors");
+        } else {
+          write(`daemon: http://127.0.0.1:${ready.port} (pid ${ready.pid})`);
+          result.daemonStarted = true;
+          result.port = ready.port;
+          if (!(options.noOpen ?? false)) openFn(`http://127.0.0.1:${ready.port}`);
+        }
+      }
+    }
   }
 
   write('');

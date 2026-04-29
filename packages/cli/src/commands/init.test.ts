@@ -190,4 +190,87 @@ describe('runInit', () => {
     // auto_spawn default written.
     expect(readConfig(root).auto_spawn_daemon).toBe(false);
   });
+
+  // --- detach-spawn daemon flow (card 48) -------------------------------
+
+  it('detach-spawns daemon and waits for /health when none is running', async () => {
+    let spawnCalls = 0;
+    const result = await runInit({
+      yes: true,
+      stateRoot: root,
+      cwd,
+      settingsPath,
+      opencodePluginPath: pluginPath,
+      aiHistoryBin: '/fake/minspect',
+      detect: { claudeCodeInstalled: false, openCodeInstalled: false, codexSessions: false },
+      findRunningDaemon: async () => null,
+      spawnServe: () => {
+        spawnCalls += 1;
+        return { pid: 99999 };
+      },
+      waitForDaemon: async () => ({ port: 21477, pid: 99999 }),
+      openBrowser: () => {
+        /* swallow */
+      },
+      write: () => {
+        /* silence */
+      },
+    });
+    expect(spawnCalls).toBe(1);
+    expect(result.daemonStarted).toBe(true);
+    expect(result.port).toBe(21477);
+  });
+
+  it('reuses running daemon without spawning a new one', async () => {
+    let spawnCalls = 0;
+    const result = await runInit({
+      yes: true,
+      stateRoot: root,
+      cwd,
+      settingsPath,
+      opencodePluginPath: pluginPath,
+      aiHistoryBin: '/fake/minspect',
+      detect: { claudeCodeInstalled: false, openCodeInstalled: false, codexSessions: false },
+      findRunningDaemon: async () => ({ port: 21477, pid: 42 }),
+      spawnServe: () => {
+        spawnCalls += 1;
+        return { pid: 99999 };
+      },
+      waitForDaemon: async () => null, // should never be called in reuse path
+      openBrowser: () => {
+        /* swallow */
+      },
+      write: () => {
+        /* silence */
+      },
+    });
+    expect(spawnCalls).toBe(0);
+    expect(result.daemonStarted).toBe(true);
+    expect(result.port).toBe(21477);
+  });
+
+  it('exits cleanly when spawn succeeds but daemon never comes up', async () => {
+    const lines: string[] = [];
+    const result = await runInit({
+      yes: true,
+      stateRoot: root,
+      cwd,
+      settingsPath,
+      opencodePluginPath: pluginPath,
+      aiHistoryBin: '/fake/minspect',
+      detect: { claudeCodeInstalled: false, openCodeInstalled: false, codexSessions: false },
+      findRunningDaemon: async () => null,
+      spawnServe: () => ({ pid: 99999 }),
+      waitForDaemon: async () => null, // never healthy
+      openBrowser: () => {
+        /* swallow */
+      },
+      write: (line) => {
+        lines.push(line);
+      },
+    });
+    expect(result.daemonStarted).toBe(false);
+    expect(result.port).toBeUndefined();
+    expect(lines.some((l) => /did not come up/i.test(l))).toBe(true);
+  });
 });

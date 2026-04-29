@@ -15,7 +15,7 @@
 - `minspect uninstall [--agent <a>] [--all] [--purge] [--yes]`（卡 41）：对称 install。默认 dry-run 只打印"will remove"；`--yes` 才写。`--agent claude-code` 只撤 settings.json 里 `__minspect_managed__: true` 的 hook entry；`--agent opencode` 若文件整份是我们的就删文件，否则只 strip BEGIN/END 块保留用户代码；`--all` 额外撤 cwd git 仓 post-commit + 停 daemon；`--purge` 再删 `<state_dir>/history.sqlite*` + `sessions/` + `queue/`。全部步骤每项单独备份 `.bak.<ts>`。
 - `minspect doctor [--json]`（卡 42）：诊断输出，8 项检查：`node`（≥20）、`state-dir`（可写）、`daemon`（state.json 正确且 /health 200）、`hook-claude-code`、`hook-opencode`、`hook-post-commit`（非 git 仓 skip）、`db`（history.sqlite 存在）、`events`（/api/sessions 最近 5 min 内有活动）。每项 ✓/⚠/✗ + fix 建议；`--json` 机器可读；有 fail 退出码 1。
 - `minspect status [--json]`（卡 45）：只读诊断输出，daemon 状态 / 端口 / pid / `spawned_by` / queue / 最近 event age / hook 安装状态。**无参 `minspect` 默认调用 status**（commander `isDefault: true`），帮助页仍由 `--help` 触发。
-- `minspect init [--yes]`（卡 44）：聚合命令。流程：跑 doctor → 检测 agent（`~/.claude/settings.json` / `~/.config/opencode/` / `~/.codex/sessions/`） → 逐项交互问是否装 Claude Code hook / OpenCode 插件 / Codex 30d import / cwd git 仓 post-commit hook → 首次问 `auto_spawn_daemon`（写入 `<state_dir>/config.json`） → 起 daemon + 开浏览器。`--yes` 非交互，保守默认（装检测到的 agent hook、post-commit if git、不开 auto_spawn、不导入 Codex 避免长耗时）。已装 hook 自动 skip；重复 init 幂等。
+- `minspect init [--yes]`（卡 44 + 卡 48）：聚合命令。流程：跑 doctor → 检测 agent（`~/.claude/settings.json` / `~/.config/opencode/` / `~/.codex/sessions/`） → 逐项交互问是否装 Claude Code hook / OpenCode 插件 / Codex 30d import / cwd git 仓 post-commit hook → 首次问 `auto_spawn_daemon`（写入 `<state_dir>/config.json`） → **detach-spawn 后台 daemon**（`spawnServeDetached({spawnedBy: 'init'})`） → `waitForDaemonReady` 最多 5s 轮询 `/health` → 打开浏览器 → init 本身 exit 0。init 完成后可关闭终端，daemon 不受影响。若 daemon 已在跑，`findRunningDaemon` 命中直接打印 `already running on :PORT` + 开浏览器，不重复 spawn。spawn 超时走"请手动跑 `minspect serve` 看错误"的降级路径，不崩溃。`--yes` 非交互，保守默认（装检测到的 agent hook、post-commit if git、不开 auto_spawn、不导入 Codex 避免长耗时）。已装 hook 自动 skip；重复 init 幂等。
 - `minspect revert --turn <id> | --edit <id> [--yes] [--force]`：把文件恢复到 turn/edit 之前的状态。默认 dry-run；`--yes` 才写盘。drift 检测（磁盘当前文件 sha256 ≠ expected after_hash）默认拒绝，`--force` 覆盖。Codex 来源 session **硬拒绝**（hunk 窗口级 before/after 不足以安全 revert）。AI 新建的文件（before_hash=NULL）revert = 删除。
 - `minspect import-codex --session <path|uuid> | --latest [--dir <override>]`：事后导入 Codex rollout-*.jsonl。
 - `minspect vacuum [--fix] [--clear-poison]`：扫描数据卫生问题。默认 dry-run 报告 orphan blame rows / orphan blobs / 隔离事件数。`--fix` 删孤儿 DB 行；`--clear-poison` 删 `queue/.poison/*.json`。
@@ -30,6 +30,7 @@
 - `readOpenCodeState(sessionId, root?)` / `writeOpenCodeState(sessionId, state, root?)`：OpenCode session 状态文件。
 - `runLinkCommit({cwd?, stateRoot?})`：post-commit 入口；无 repo / 无 collector 静默 return。
 - `installPostCommitHook({repoRoot, aiHistoryBin})`：写入 `.git/hooks/post-commit`，BEGIN/END 标记块，幂等、备份、Windows 路径转 forward slash。
+- `spawnServeDetached({spawnedBy})` / `waitForDaemonReady({stateRoot?, timeoutMs?})` / `findRunningDaemon(stateRoot?)` / `openBrowser(url)`（卡 48）：detach-spawn daemon 的共享原语。`minspect init` 与 hook auto-spawn（`transport.ts::maybeSpawnDaemon`）共用这套，保证 detach 语义一处定义。
 - `readSessionState(sessionId, root?)` / `writeSessionState(state, root?)`：每会话状态文件。
 - `enqueueEvent` / `listQueued` / `readQueued` / `removeQueued`：磁盘队列原语。
 - `sendEvent(event, root?)`：带队列 drain 的发送。
@@ -50,6 +51,7 @@
 - **Windows hook**：命令里 quote 完整绝对路径；不依赖 PATH；post-commit shell 脚本里的路径转 forward slash 兼容 git-bash。
 - **post-commit 标记块**：`# >>> minspect managed >>>` ... `# <<< minspect managed <<<` 包裹；install 时 strip + 重插，保证幂等；用户自有 hook 内容保留。
 - **link-commit 静默失败**：没 repo、merge commit、collector 离线、fetch 异常——一律 no-op 不阻塞 git。
+- **init 起 daemon 走 detach-spawn**（卡 48）：`minspect init` 不在前台 hold daemon；用 `spawn(node, bin, serve, --quiet, {detached, stdio:ignore, windowsHide}).unref()` 起后台进程 + 轮询 `/health` 确认 ready，init 自身退出。关执行 init 的终端不会杀 daemon。前台 `minspect serve` 本身仍是前台阻塞，行为不变。
 
 ## Packaging（卡 46）
 
@@ -65,13 +67,69 @@
 - `packages/cli/src/bundle.test.ts` 运行 bundle 脚本并验证 layout + shebang +
   package.json 字段 + 工作区代码内联（零 `require('@minspect/*')`）+ 大小 < 10 MB。
 - 发布流程：`pnpm -r build && pnpm -C packages/cli bundle && cd packages/cli/dist-bundle && pnpm publish`（手工触发；版本同 workspace）。
-- **One-liner 脚本（卡 47）**：`scripts/install.sh`（POSIX sh, macOS/Linux）+
-  `scripts/install.ps1`（PowerShell）。都是薄包装：验证 Node ≥ 20 → `npm install -g @ivenlau/minspect[@version]`
-  → 打印 `minspect init` 提示。参数 `--version X` / `--skip-init`（PS: `-Version` / `-SkipInit`）。
-  不编辑 shell rc；依赖 `npm -g` 的全局 bin 在 PATH 里（典型 Node 安装默认就是）。
-  二进制 release（pkg/bun 单 exe）留给后续卡。
+- **One-liner 脚本（卡 47 + 卡 49）**：`scripts/install.sh`（POSIX sh, macOS/Linux）+
+  `scripts/install.ps1`（PowerShell）。都是薄包装：验证 Node ≥ 20 → `npm install -g @ivenlau/minspect[@version] --loglevel=error`
+  → 打印 `minspect init` 提示。参数 `--version X` / `--skip-init` / `--verbose`
+  （PS: `-Version` / `-SkipInit` / `-Verbose`）。默认 `--loglevel=error` 隐藏
+  transitive peerOptional / deprecated warn（tree-sitter、prebuild-install 一类），
+  `--verbose` 切 `--loglevel=notice` 给排障留后门。不编辑 shell rc；依赖 `npm -g`
+  的全局 bin 在 PATH 里（典型 Node 安装默认就是）。二进制 release（pkg/bun 单 exe）
+  留给后续卡。
 
 ## Changes
+
+### 49-install-quieter (closed 2026-04-29)
+
+**Why**
+`iwr ... | iex` / `curl ... | sh` 首次安装时 npm 喷大量 transitive 依赖
+warn（`peerOptional tree-sitter`、`deprecated prebuild-install`），用户看
+了没法做任何事，反而掩盖真实错误。观感差。
+
+**Scope 落地**
+- `scripts/install.sh`：新增 `--verbose` flag；装 npm 时默认
+  `--loglevel=error`，`--verbose` 切到 `--loglevel=notice`。help 文字区间
+  `sed -n '2,20p'` 同步扩一行。
+- `scripts/install.ps1`：新增 `[switch]$Verbose`；`$npmLogLevel =
+  if ($Verbose) { 'notice' } else { 'error' }`；`npm install -g $pkg
+  --loglevel=$npmLogLevel`。
+- `packages/cli/src/install-scripts.test.ts` 加 2 用例 —— verbose 开关
+  在两份脚本里可见、默认 `--loglevel=error` 字面存在；原 6 用例保留。
+  含 PowerShell 语法解析，保证 `-Verbose` 在非 CmdletBinding 下不引入
+  跟通用参数的冲突。
+- `README.md` / `README.zh.md` Quick start 说明一行："默认只打印错误；
+  需要排障加 `--verbose`（PS: `-Verbose`）"。
+
+**Not in**
+- 不改 npm progress bar（npm 10 在非 TTY 自动关闭，TTY 下保留无妨）。
+- 不按 warn 文本做 grep 过滤（脆弱 + 不通用）。
+- 不支持更低于 `error` 的层级（已是合理静默下限）。
+
+### 48-init-detach-daemon (closed 2026-04-29)
+
+**Why**
+原先 `minspect init` 在同一进程 `await runServe()`，daemon 与执行 init 的
+终端绑死 —— 关窗口即杀 daemon。与 `colima start` / `ollama serve` 一类
+CLI 用户心智不符。
+
+**Scope 落地**
+- `packages/cli/src/commands/serve.ts` 新增/导出 `spawnServeDetached`、
+  `waitForDaemonReady`、`findRunningDaemon`、`openBrowser`；`transport.ts::
+  maybeSpawnDaemon` 改为复用 `spawnServeDetached`，消除 spawn 代码重复
+- `packages/cli/src/commands/init.ts` 末尾不再 `await runServe`，改为
+  pre-check `findRunningDaemon`（命中 → 打印 + open browser 即返回）→
+  `spawnServeDetached({spawnedBy: 'init'})` → `waitForDaemonReady`
+  最多 5s 轮询 `/health` → 打印 `http://127.0.0.1:PORT (pid N)` + open
+  browser；init 自身退出
+- `InitOptions` 新增 `findRunningDaemon` / `spawnServe` / `waitForDaemon` /
+  `openBrowser` 测试注入点，避免单测碰真实子进程
+- `init.test.ts` 新增 3 用例：spawn happy path / reuse running / spawn
+  后 daemon 没起来（不崩、exit 0、提示手动跑 serve）
+
+**Not in**
+- 不改 `minspect serve` 本身（前台阻塞语义保留，便于 CI / docker / foreman
+  场景）
+- 不动 `auto_spawn_daemon` flag 的语义 —— 它管 hook，init 明确要起
+  daemon 与该 flag 正交
 
 ### 47-install-oneliner (closed 2026-04-29)
 

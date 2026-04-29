@@ -38,7 +38,9 @@ Windows（PowerShell）：
 iwr https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.ps1 | iex
 ```
 
-两个脚本都会检查 Node ≥ 20 再执行 `npm install -g @ivenlau/minspect`。直接走 npm：
+两个脚本都会检查 Node ≥ 20 再执行 `npm install -g @ivenlau/minspect`。默认只打印错误；
+需要看 npm 完整的 `peerOptional` / `deprecated` 警告排障时加 `--verbose`（PowerShell：`-Verbose`）。
+直接走 npm：
 
 ```bash
 npm install -g @ivenlau/minspect

@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -110,12 +111,12 @@ async function probeHealth(port: number, timeoutMs = 500): Promise<boolean> {
   }
 }
 
-interface RunningDaemon {
+export interface RunningDaemon {
   port: number;
   pid: number;
 }
 
-async function findRunningDaemon(stateRoot?: string): Promise<RunningDaemon | null> {
+export async function findRunningDaemon(stateRoot?: string): Promise<RunningDaemon | null> {
   const path = getStateFilePath(stateRoot);
   if (!existsSync(path)) return null;
   try {
@@ -135,6 +136,47 @@ async function findRunningDaemon(stateRoot?: string): Promise<RunningDaemon | nu
   } catch {
     return null;
   }
+}
+
+// Launch `minspect serve --quiet` as a detached background process. Shared
+// between the hook auto-spawn path (transport.ts) and `minspect init`
+// (commands/init.ts) — both want the daemon to outlive the parent process.
+// Returns the child pid on success, or null if we couldn't start it (no
+// resolvable bin path, or spawn itself threw).
+export function spawnServeDetached(opts: { spawnedBy: SpawnedBy } = { spawnedBy: 'user' }): {
+  pid: number;
+} | null {
+  const binPath = process.argv[1];
+  if (!binPath) return null;
+  try {
+    const child = spawn(process.execPath, [binPath, 'serve', '--quiet'], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      env: { ...process.env, MINSPECT_SPAWNED_BY: opts.spawnedBy },
+    });
+    child.unref();
+    return { pid: child.pid ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
+// Poll the state file + /health until the daemon is reachable, or give up
+// after `timeoutMs`. Used by `minspect init` to confirm the detach-spawn
+// actually came up before we tell the user "http://127.0.0.1:..."
+export async function waitForDaemonReady(
+  opts: { stateRoot?: string; timeoutMs?: number; pollMs?: number } = {},
+): Promise<RunningDaemon | null> {
+  const timeoutMs = opts.timeoutMs ?? 5000;
+  const pollMs = opts.pollMs ?? 150;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const d = await findRunningDaemon(opts.stateRoot);
+    if (d) return d;
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+  return null;
 }
 
 interface DaemonBuildInfo {
@@ -297,8 +339,7 @@ export async function runStop(options: { stateRoot?: string } = {}): Promise<boo
   return true;
 }
 
-async function openBrowser(url: string): Promise<void> {
-  const { spawn } = await import('node:child_process');
+export async function openBrowser(url: string): Promise<void> {
   const platform = process.platform;
   try {
     if (platform === 'win32') {

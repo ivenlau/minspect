@@ -13,6 +13,7 @@
 # Flags:
 #   --version X   install @ivenlau/minspect@X instead of latest
 #   --skip-init   don't print the `minspect init` hint at the end
+#   --verbose     show npm's warn / deprecated / notice output (default: errors only)
 #
 # This script never edits shell rc files — it relies on whatever global
 # install location `npm -g` chose being on the user's PATH, same as `npm
@@ -23,14 +24,16 @@ set -eu
 
 VERSION=""
 SKIP_INIT=0
+VERBOSE=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --version) VERSION="$2"; shift 2 ;;
     --version=*) VERSION="${1#--version=}"; shift ;;
     --skip-init) SKIP_INIT=1; shift ;;
+    --verbose) VERBOSE=1; shift ;;
     -h|--help)
-      sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -64,7 +67,15 @@ if [ -n "$VERSION" ]; then
 fi
 
 echo "Installing $PKG via npm..."
-npm install -g "$PKG"
+# Default to --loglevel=error so the first-time install isn't buried under
+# transitive peerOptional / deprecated warnings from tree-sitter and
+# prebuild-install. Pass --verbose to get the full noise back for debugging.
+if [ "$VERBOSE" = "1" ]; then
+  NPM_LOGLEVEL="notice"
+else
+  NPM_LOGLEVEL="error"
+fi
+npm install -g "$PKG" --loglevel="$NPM_LOGLEVEL"
 
 echo ""
 echo "minspect installed:"

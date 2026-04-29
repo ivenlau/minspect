@@ -45,6 +45,27 @@ describe('install scripts', () => {
     expect(ps).toMatch(/"@ivenlau\/minspect"/);
   });
 
+  it('both accept a verbose escape hatch (card 49)', () => {
+    const sh = readFileSync(SH, 'utf8');
+    const ps = readFileSync(PS1, 'utf8');
+    // sh: `--verbose` flag parsed in the getopts loop.
+    expect(sh).toMatch(/--verbose\)/);
+    // ps: `-Verbose` switch in param block.
+    expect(ps).toMatch(/\[switch\]\$Verbose/);
+  });
+
+  it('both default npm install to --loglevel=error, verbose to --loglevel=notice', () => {
+    const sh = readFileSync(SH, 'utf8');
+    const ps = readFileSync(PS1, 'utf8');
+    // Both scripts pass --loglevel to npm, and both have `error` and
+    // `notice` as the two branches (default / --verbose respectively).
+    expect(sh).toMatch(/NPM_LOGLEVEL="error"/);
+    expect(sh).toMatch(/NPM_LOGLEVEL="notice"/);
+    expect(sh).toMatch(/npm install -g "\$PKG" --loglevel="\$NPM_LOGLEVEL"/);
+    expect(ps).toMatch(/\$npmLogLevel = if \(\$Verbose\) \{ 'notice' \} else \{ 'error' \}/);
+    expect(ps).toMatch(/npm install -g \$pkg --loglevel=\$npmLogLevel/);
+  });
+
   it('install.sh parses under POSIX sh', () => {
     // This relies on `sh` being available — git-bash on Windows, /bin/sh
     // elsewhere. Skip if not reachable.
