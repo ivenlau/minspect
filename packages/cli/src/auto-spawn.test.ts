@@ -24,7 +24,7 @@ vi.mock('node:child_process', async () => {
 });
 
 // Dynamic import so the mock above applies.
-const { sendEvent } = await import('./transport.js');
+const { sendEvent, __resetMaybeSpawnDedupeForTest } = await import('./transport.js');
 
 const git: GitState = { branch: 'main', head: 'a', dirty: false };
 
@@ -45,6 +45,7 @@ describe('auto_spawn_daemon', () => {
     root = mkdtempSync(join(tmpdir(), 'minspect-spawn-'));
     mkdirSync(root, { recursive: true });
     spawnMock.mockClear();
+    __resetMaybeSpawnDedupeForTest();
   });
   afterEach(() => {
     try {
@@ -93,5 +94,30 @@ describe('auto_spawn_daemon', () => {
     );
     await sendEvent(sampleEvent('s1'), root);
     expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  // Card 50 regression: Codex import inside `minspect init` fires hundreds
+  // of sendEvent calls with no daemon yet, and each used to detach-spawn a
+  // fresh `serve --quiet`. Within a single process the spawn now coalesces
+  // so bursts produce exactly one child.
+  it('coalesces spawn calls within the 5s cooldown window', async () => {
+    writeConfig({ auto_spawn_daemon: true }, root);
+    for (let i = 0; i < 5; i++) {
+      await sendEvent(sampleEvent(`burst-${i}`), root);
+    }
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a second spawn after the cooldown elapses', async () => {
+    writeConfig({ auto_spawn_daemon: true }, root);
+    await sendEvent(sampleEvent('first'), root);
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+
+    // Simulate time passing — reset the module's dedupe, which models
+    // "cooldown elapsed and the earlier spawn failed to bring up a
+    // daemon" (i.e. state.json still absent).
+    __resetMaybeSpawnDedupeForTest();
+    await sendEvent(sampleEvent('second'), root);
+    expect(spawnMock).toHaveBeenCalledTimes(2);
   });
 });

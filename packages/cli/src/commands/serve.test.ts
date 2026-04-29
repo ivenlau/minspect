@@ -42,6 +42,40 @@ describe('runServe / runStop', () => {
     await first.stop();
   });
 
+  // Card 50 regression: detach-spawned `serve --quiet` processes (from
+  // init auto-spawn or hook auto-spawn) that land on the reuse path used
+  // to unconditionally open the browser, which is how a single codex
+  // import could pop N browser windows. Both paths must now honor quiet.
+  it('reuse path does not open browser when quiet=true', async () => {
+    const first = await runServe({ noOpen: true, stateRoot: root, port: 0 });
+    let opens = 0;
+    const second = await runServe({
+      stateRoot: root,
+      port: 0,
+      quiet: true,
+      openBrowser: () => {
+        opens += 1;
+      },
+    });
+    expect(second.reused).toBe(true);
+    expect(opens).toBe(0);
+    await first.stop();
+  });
+
+  it('fresh-start path does not open browser when quiet=true', async () => {
+    let opens = 0;
+    const handle = await runServe({
+      stateRoot: root,
+      port: 0,
+      quiet: true,
+      openBrowser: () => {
+        opens += 1;
+      },
+    });
+    expect(opens).toBe(0);
+    await handle.stop();
+  });
+
   it('runStop returns false when no daemon is running', async () => {
     const stopped = await runStop({ stateRoot: root });
     expect(stopped).toBe(false);

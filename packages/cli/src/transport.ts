@@ -58,6 +58,25 @@ async function postOne(
   }
 }
 
+// Per-process cooldown so a burst of sendEvent calls (e.g. `init` importing
+// a 30-day window of Codex sessions — hundreds of events before the daemon
+// finishes binding 21477) doesn't trigger a spawn storm. Cross-process
+// safety is handled by the OS: only one spawned `serve` wins the port.
+// The cooldown lets a single process stop firing spawns after the first
+// within a 5 s window; after the window elapses we allow another attempt
+// so a crashed daemon can still be resurrected from the same process.
+let lastSpawnAt = 0;
+const SPAWN_COOLDOWN_MS = 5000;
+
+/**
+ * @internal Test-only. Lets test files with clean beforeEach hooks reset
+ * the module-level cooldown state between runs. Not wired into any public
+ * command.
+ */
+export function __resetMaybeSpawnDedupeForTest(): void {
+  lastSpawnAt = 0;
+}
+
 // Detach-spawn `minspect serve --quiet` when config.auto_spawn_daemon is on
 // and no daemon is running. Fire-and-forget: we don't wait for the server
 // to come up, so the hook keeps its ≤100 ms SLA. The daemon, once listening,
@@ -65,6 +84,9 @@ async function postOne(
 function maybeSpawnDaemon(root?: string): void {
   const cfg = readConfig(root);
   if (!cfg.auto_spawn_daemon) return;
+  const now = Date.now();
+  if (now - lastSpawnAt < SPAWN_COOLDOWN_MS) return;
+  lastSpawnAt = now;
   // Hook never blocks. spawnServeDetached swallows its own errors and
   // returns null — on failure the event is already on its way to the disk
   // queue below, and the daemon drains on next manual start.

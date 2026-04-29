@@ -45,6 +45,10 @@ export interface ServeOptions {
   // browser. Used when another process (a hook auto-spawn, card 43) starts
   // the daemon — we want minimal terminal noise in that case.
   quiet?: boolean;
+  // Test seam: override the side-effect that launches the OS browser, so
+  // unit tests can assert whether it was invoked without touching the
+  // user's real browser.
+  openBrowser?: (url: string) => void;
 }
 
 // Stable default port. The UI stores language/theme/dashboard-range in
@@ -225,6 +229,7 @@ export interface ServeHandle {
 }
 
 export async function runServe(options: ServeOptions = {}): Promise<ServeHandle> {
+  const open = options.openBrowser ?? ((url: string) => void openBrowser(url));
   const existing = await findRunningDaemon(options.stateRoot);
   if (existing) {
     // Strict reuse: refuse to share a daemon whose code on disk has been
@@ -235,7 +240,10 @@ export async function runServe(options: ServeOptions = {}): Promise<ServeHandle>
     const info = await probeBuildInfo(existing.port);
     const stale = isDaemonStale(info);
     if (!stale) {
-      if (!options.noOpen) void openBrowser(`http://127.0.0.1:${existing.port}`);
+      // Align with the fresh-start path: --quiet means we were spawned by
+      // another process (hook auto-spawn, init detach-spawn) — never open
+      // the browser from a background child. Card 50.
+      if (!options.noOpen && !options.quiet) open(`http://127.0.0.1:${existing.port}`);
       process.stdout.write(
         `reused daemon on http://127.0.0.1:${existing.port} (pid ${existing.pid})\n`,
       );
@@ -279,7 +287,7 @@ export async function runServe(options: ServeOptions = {}): Promise<ServeHandle>
     process.stdout.write(`minspect listening on http://127.0.0.1:${srv.port}\n`);
   }
   const shouldOpen = !options.noOpen && !options.quiet;
-  if (shouldOpen) void openBrowser(`http://127.0.0.1:${srv.port}`);
+  if (shouldOpen) open(`http://127.0.0.1:${srv.port}`);
 
   const cleanup = async () => {
     try {

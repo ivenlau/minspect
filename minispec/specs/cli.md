@@ -52,6 +52,8 @@
 - **post-commit 标记块**：`# >>> minspect managed >>>` ... `# <<< minspect managed <<<` 包裹；install 时 strip + 重插，保证幂等；用户自有 hook 内容保留。
 - **link-commit 静默失败**：没 repo、merge commit、collector 离线、fetch 异常——一律 no-op 不阻塞 git。
 - **init 起 daemon 走 detach-spawn**（卡 48）：`minspect init` 不在前台 hold daemon；用 `spawn(node, bin, serve, --quiet, {detached, stdio:ignore, windowsHide}).unref()` 起后台进程 + 轮询 `/health` 确认 ready，init 自身退出。关执行 init 的终端不会杀 daemon。前台 `minspect serve` 本身仍是前台阻塞，行为不变。
+- **`serve --quiet` 永不开浏览器**（卡 50）：包括 fresh-start 和 reuse 两条路径。detach-spawn 的后台进程一律只是监听，不触发 UI 弹窗；想开浏览器的调用方（init 末尾、用户手动 `minspect serve`）自己走 `openBrowser`。
+- **`maybeSpawnDaemon` 5s 冷却窗口**（卡 50）：`sendEvent` 同进程内一次 daemon 起动期最多 spawn 一次 `serve --quiet`，防 Codex import 这种突发 event 流的 spawn storm。冷却到期（daemon 还是没起来）允许再 spawn 重试。
 
 ## Packaging（卡 46）
 
@@ -77,6 +79,31 @@
   留给后续卡。
 
 ## Changes
+
+### 50-fix-multi-browser-open (closed 2026-04-29)
+
+**Why**
+用户开 `minspect init` + 同意 "Import 30d Codex sessions" + 开启
+`auto_spawn_daemon` 时，浏览器被打开几十次。Codex 单 session 几百 event，
+每个在 daemon 启动窗口内都触发 `maybeSpawnDaemon`（无去重），产生几十个
+`serve --quiet` 进程 race，输的那几十个走 `runServe` 复用路径，而复用
+路径忽略了 `options.quiet` 直接开浏览器。
+
+**Scope 落地**
+- `packages/cli/src/commands/serve.ts`：reuse 路径 `if (!options.noOpen
+  && !options.quiet) open(...)`，与 fresh-start 路径对齐；`ServeOptions`
+  新增 `openBrowser` 测试注入点。
+- `packages/cli/src/transport.ts`：`maybeSpawnDaemon` 加 5s 冷却窗口
+  （`lastSpawnAt` 模块级 state），同进程 5s 内最多 spawn 一次；导出
+  `__resetMaybeSpawnDedupeForTest` 单测用。
+- `serve.test.ts` 加 2 用例（quiet 模式 fresh-start / reuse 都不开
+  浏览器）；`auto-spawn.test.ts` 加 2 用例（5 次连续 sendEvent 只
+  spawn 1 次 / cooldown 过后允许再 spawn）。
+- `packages/cli/package.json` 0.1.1 → 0.1.2。
+
+**Not in**
+- 不做跨进程 spawn 去重（OS 端口竞争已经保证只有一个 bind 成功）。
+- 不改 `auto_spawn_daemon` 交互或默认值。
 
 ### 49-install-quieter (closed 2026-04-29)
 
