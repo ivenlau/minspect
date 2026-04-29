@@ -35,14 +35,14 @@ describe('install scripts', () => {
     expect(ps).toMatch(/\[switch\]\$SkipInit/);
   });
 
-  it('both install the public npm package name, not a scoped one', () => {
+  it('both install the public npm package name, not the workspace one', () => {
     const sh = readFileSync(SH, 'utf8');
     const ps = readFileSync(PS1, 'utf8');
     // Ensure we never accidentally migrate the one-liner to @minspect/cli.
     expect(sh).not.toMatch(/@minspect\/cli/);
     expect(ps).not.toMatch(/@minspect\/cli/);
-    expect(sh).toMatch(/PKG="minspect"/);
-    expect(ps).toMatch(/"minspect"/);
+    expect(sh).toMatch(/PKG="@ivenlau\/minspect"/);
+    expect(ps).toMatch(/"@ivenlau\/minspect"/);
   });
 
   it('install.sh parses under POSIX sh', () => {

@@ -1,17 +1,17 @@
 #!/bin/sh
 # minspect one-liner installer (macOS / Linux).
 #
-#   curl -fsSL https://raw.githubusercontent.com/anthropics/minspect/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.sh | sh
 #
 # What it does:
 #   1. Verifies Node.js >= 20 is on PATH.
-#   2. Runs `npm install -g minspect[@version]` (npm bundles all JS; the only
-#      native deps are better-sqlite3 + tree-sitter*, which fetch prebuilt
-#      binaries during install when possible).
+#   2. Runs `npm install -g @ivenlau/minspect[@version]` (npm bundles all JS;
+#      the only native deps are better-sqlite3 + tree-sitter*, which fetch
+#      prebuilt binaries during install when possible).
 #   3. Suggests `minspect init` so the user can wire up their agent hooks.
 #
 # Flags:
-#   --version X   install minspect@X instead of latest
+#   --version X   install @ivenlau/minspect@X instead of latest
 #   --skip-init   don't print the `minspect init` hint at the end
 #
 # This script never edits shell rc files — it relies on whatever global
@@ -58,9 +58,9 @@ if [ "$NODE_MAJOR" -lt 20 ] 2>/dev/null; then
   die "Node.js 20+ required (found $(node -v))"
 fi
 
-PKG="minspect"
+PKG="@ivenlau/minspect"
 if [ -n "$VERSION" ]; then
-  PKG="minspect@$VERSION"
+  PKG="@ivenlau/minspect@$VERSION"
 fi
 
 echo "Installing $PKG via npm..."

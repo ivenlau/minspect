@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { runCaptureOpenCode } from './commands/capture-opencode.js';
 import { runCapture } from './commands/capture.js';
@@ -14,8 +17,24 @@ import { formatStatusReport, runStatus } from './commands/status.js';
 import { type UninstallAgent, formatUninstallReport, runUninstall } from './commands/uninstall.js';
 import { runVacuum } from './commands/vacuum.js';
 
+// Read version from the nearest package.json. In the published bundle,
+// package.json sits next to bin.cjs; in dev, dist/bin.js sits one level
+// below packages/cli/package.json. Try both in that order.
+function resolveVersion(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const candidate of [join(here, 'package.json'), join(here, '..', 'package.json')]) {
+    try {
+      const pkg = JSON.parse(readFileSync(candidate, 'utf8')) as { version?: string };
+      if (pkg.version) return pkg.version;
+    } catch {
+      // try next candidate
+    }
+  }
+  return '0.0.0';
+}
+
 const program = new Command();
-program.name('minspect').description('AI coding history CLI').version('0.0.0');
+program.name('minspect').description('AI coding history CLI').version(resolveVersion());
 
 // Default action when called with no subcommand: show status. Users first
 // reach for `minspect` without args expecting "is it running, where's the

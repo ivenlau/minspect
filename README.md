@@ -38,11 +38,11 @@ Windows (PowerShell):
 iwr https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.ps1 | iex
 ```
 
-Both scripts check Node ≥ 20 and run `npm install -g minspect`. If you prefer
+Both scripts check Node ≥ 20 and run `npm install -g @ivenlau/minspect`. If you prefer
 `npm` directly:
 
 ```bash
-npm install -g minspect
+npm install -g @ivenlau/minspect
 ```
 
 Or from source:

@@ -1,11 +1,11 @@
 # minspect one-liner installer (Windows PowerShell).
 #
-#   iwr https://raw.githubusercontent.com/anthropics/minspect/main/scripts/install.ps1 | iex
+#   iwr https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.ps1 | iex
 #
 # See scripts/install.sh for the macOS/Linux equivalent — same semantics.
 #
 # Flags:
-#   -Version X    install minspect@X instead of latest
+#   -Version X    install @ivenlau/minspect@X instead of latest
 #   -SkipInit     don't print the `minspect init` hint at the end
 
 param(
@@ -35,7 +35,7 @@ if ($nodeMajor -lt 20) {
     Die "Node.js 20+ required (found $v)"
 }
 
-$pkg = if ($Version) { "minspect@$Version" } else { "minspect" }
+$pkg = if ($Version) { "@ivenlau/minspect@$Version" } else { "@ivenlau/minspect" }
 
 Write-Host "Installing $pkg via npm..."
 # npm on Windows prints progress to stderr; just let it through.

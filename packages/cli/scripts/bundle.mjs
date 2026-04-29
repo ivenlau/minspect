@@ -2,18 +2,18 @@
 // `dist-bundle/` tarball-ready directory. Produces:
 //
 //   dist-bundle/
-//     package.json           (public-facing, name: "minspect")
+//     package.json           (public-facing, name: "@ivenlau/minspect")
 //     bin.cjs                (bundled entry, shebang preserved)
 //     ui/                    (UI SPA static assets, copied from @minspect/ui)
 //     README.md              (copy of project README)
 //
-// Consumers run `npm i -g minspect` and get all of the above. Native modules
+// Consumers run `npm i -g @ivenlau/minspect` and get all of the above. Native modules
 // (`better-sqlite3`, tree-sitter*) stay external so npm install can fetch
 // prebuilt binaries for the user's platform. Everything else — commander,
 // fastify, the core/collector/adapters TypeScript — is bundled inline.
 //
 // Invariants the `pack.test.ts` asserts:
-//   - dist-bundle/package.json has name: "minspect"
+//   - dist-bundle/package.json has name: "@ivenlau/minspect"
 //   - bin.cjs starts with `#!/usr/bin/env node`
 //   - ui/index.html exists (the SPA was copied)
 //   - Every `@minspect/*` import is bundled (tarball has zero workspace deps)
@@ -130,7 +130,7 @@ function writeBundledPackageJson() {
     'tree-sitter-typescript': '^0.23.2',
   };
   const pub = {
-    name: 'minspect',
+    name: '@ivenlau/minspect',
     version: VERSION,
     description:
       'Git blame for AI coding agents — record what every agent changed, why, and through which prompts, down to the line.',
@@ -140,7 +140,7 @@ function writeBundledPackageJson() {
     license: 'MIT',
     repository: {
       type: 'git',
-      url: 'https://github.com/anthropics/minspect',
+      url: 'https://github.com/ivenlau/minspect',
     },
     publishConfig: { access: 'public' },
     dependencies: nativeDeps,

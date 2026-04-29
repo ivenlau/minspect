@@ -38,10 +38,10 @@ Windows（PowerShell）：
 iwr https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.ps1 | iex
 ```
 
-两个脚本都会检查 Node ≥ 20 再执行 `npm install -g minspect`。直接走 npm：
+两个脚本都会检查 Node ≥ 20 再执行 `npm install -g @ivenlau/minspect`。直接走 npm：
 
 ```bash
-npm install -g minspect
+npm install -g @ivenlau/minspect
 ```
 
 从源码安装：

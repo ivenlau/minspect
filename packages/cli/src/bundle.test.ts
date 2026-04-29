@@ -43,12 +43,13 @@ describe.runIf(PRE_BUILT)('cli bundle', () => {
   it('package.json is publish-ready (name, bin, files, engines)', () => {
     const pkg = JSON.parse(readFileSync(join(OUT, 'package.json'), 'utf8')) as {
       name: string;
+      version: string;
       bin: Record<string, string>;
       files: string[];
       engines: { node: string };
       dependencies: Record<string, string>;
     };
-    expect(pkg.name).toBe('minspect');
+    expect(pkg.name).toBe('@ivenlau/minspect');
     expect(pkg.bin.minspect).toBe('./bin.cjs');
     expect(pkg.files).toContain('bin.cjs');
     expect(pkg.files.some((f) => f.startsWith('ui'))).toBe(true);
@@ -57,11 +58,27 @@ describe.runIf(PRE_BUILT)('cli bundle', () => {
     // `npm i`. Anything else being present would mean we failed to bundle.
     expect(Object.keys(pkg.dependencies)).toContain('better-sqlite3');
     expect(pkg.dependencies['@minspect/core']).toBeUndefined();
+    // Guard against the 0.0.0 regression: the bundle package.json must
+    // carry the workspace cli version (which is what `bin.cjs` reads at
+    // runtime for `--version`).
+    const cliPkg = JSON.parse(readFileSync(join(CLI_ROOT, 'package.json'), 'utf8')) as {
+      version: string;
+    };
+    expect(pkg.version).toBe(cliPkg.version);
+    expect(pkg.version).not.toBe('0.0.0');
+  });
+
+  it('bin.cjs does not hard-code a version — it reads package.json at runtime', () => {
+    const body = readFileSync(join(OUT, 'bin.cjs'), 'utf8');
+    // If someone reintroduces `.version('X.Y.Z')` as a literal, `--version`
+    // will silently drift from the published package.json. Force the read
+    // to be dynamic.
+    expect(body).not.toMatch(/\.version\(\s*["'][\d.]+["']\s*\)/);
   });
 
   it('bundle contains inlined workspace code (no @minspect/* requires)', () => {
     const body = readFileSync(join(OUT, 'bin.cjs'), 'utf8');
-    // If any require("@minspect/...") leaked through, `npm i minspect` would
+    // If any require("@minspect/...") leaked through, `npm i @ivenlau/minspect` would
     // fail on a machine without workspace links because those packages
     // aren't published.
     expect(body).not.toMatch(/require\(["']@minspect\//);

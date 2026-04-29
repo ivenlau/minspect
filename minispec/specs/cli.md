@@ -64,9 +64,9 @@
 - 产物结构：`dist-bundle/{bin.cjs, ui/, package.json, README.md}`。
 - `packages/cli/src/bundle.test.ts` 运行 bundle 脚本并验证 layout + shebang +
   package.json 字段 + 工作区代码内联（零 `require('@minspect/*')`）+ 大小 < 10 MB。
-- 发布流程：`pnpm -r build && pnpm -C packages/cli bundle && cd packages/cli/dist-bundle && npm publish`（手工触发；版本同 workspace）。
+- 发布流程：`pnpm -r build && pnpm -C packages/cli bundle && cd packages/cli/dist-bundle && pnpm publish`（手工触发；版本同 workspace）。
 - **One-liner 脚本（卡 47）**：`scripts/install.sh`（POSIX sh, macOS/Linux）+
-  `scripts/install.ps1`（PowerShell）。都是薄包装：验证 Node ≥ 20 → `npm install -g minspect[@version]`
+  `scripts/install.ps1`（PowerShell）。都是薄包装：验证 Node ≥ 20 → `npm install -g @ivenlau/minspect[@version]`
   → 打印 `minspect init` 提示。参数 `--version X` / `--skip-init`（PS: `-Version` / `-SkipInit`）。
   不编辑 shell rc；依赖 `npm -g` 的全局 bin 在 PATH 里（典型 Node 安装默认就是）。
   二进制 release（pkg/bun 单 exe）留给后续卡。
