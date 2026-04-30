@@ -87,6 +87,93 @@ describe('api', () => {
     expect(body.blame).toEqual([]);
   });
 
+  it('GET /api/blame?edit=<id> returns historical shape matching the live shape', async () => {
+    // Add a second edit so we can compare (edit=tc2:0 should equal current).
+    store.ingest({
+      type: 'turn_start',
+      session_id: 's1',
+      turn_id: 't2',
+      idx: 1,
+      user_prompt: 'fix bug',
+      git,
+      timestamp: 12,
+    });
+    store.ingest({
+      type: 'tool_call',
+      session_id: 's1',
+      turn_id: 't2',
+      tool_call_id: 'tc2',
+      idx: 0,
+      tool_name: 'Edit',
+      input: {},
+      status: 'ok',
+      file_edits: [{ file_path: 'a.ts', before_content: 'foo\nbar', after_content: 'foo\nBAR2' }],
+      started_at: 20,
+      ended_at: 21,
+    } satisfies Event);
+
+    const live = (
+      await app.inject({ method: 'GET', url: '/api/blame?workspace=/ws&file=a.ts' })
+    ).json() as { blame: unknown[]; turns: unknown[]; content: string; edits: unknown[] };
+    const historical = (
+      await app.inject({
+        method: 'GET',
+        url: '/api/blame?workspace=/ws&file=a.ts&edit=tc2:0',
+      })
+    ).json() as typeof live;
+
+    // At the last edit, historical replay === live line_blame output.
+    expect(historical.content).toBe(live.content);
+    expect(historical.blame).toEqual(live.blame);
+    expect(historical.edits).toEqual(live.edits);
+  });
+
+  it('GET /api/blame?edit=<id> at a mid-chain revision shows that revision content', async () => {
+    store.ingest({
+      type: 'turn_start',
+      session_id: 's1',
+      turn_id: 't2',
+      idx: 1,
+      user_prompt: 'fix bug',
+      git,
+      timestamp: 12,
+    });
+    store.ingest({
+      type: 'tool_call',
+      session_id: 's1',
+      turn_id: 't2',
+      tool_call_id: 'tc2',
+      idx: 0,
+      tool_name: 'Edit',
+      input: {},
+      status: 'ok',
+      file_edits: [{ file_path: 'a.ts', before_content: 'foo\nbar', after_content: 'foo\nBAR2' }],
+      started_at: 20,
+      ended_at: 21,
+    } satisfies Event);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/blame?workspace=/ws&file=a.ts&edit=tc1:0',
+    });
+    const body = res.json() as {
+      content: string;
+      blame: Array<{ line_no: number; edit_id: string }>;
+    };
+    expect(body.content).toBe('foo\nbar'); // tc1's after
+    expect(body.blame.every((b) => b.edit_id === 'tc1:0')).toBe(true);
+  });
+
+  it('GET /api/blame?edit=<bogus> returns an empty historical response', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/blame?workspace=/ws&file=a.ts&edit=does-not-exist',
+    });
+    const body = res.json() as { blame: unknown[]; content: string };
+    expect(body.blame).toEqual([]);
+    expect(body.content).toBe('');
+  });
+
   it('GET / returns the HTML shell (or 503 if UI unbuilt)', async () => {
     const res = await app.inject({ method: 'GET', url: '/' });
     expect([200, 503]).toContain(res.statusCode);

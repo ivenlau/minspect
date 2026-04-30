@@ -8,6 +8,7 @@
 - `createServer(store)`：返回 `FastifyInstance`；含 `POST /events`、`GET /health`。
 - `startServer({store, port?, host?})`：listen 并返回 `{port, stop}`。
 - `state.ts`：`getStateDir()`、`getDbPath()`、`readState()`、`writeState()`、`DaemonState` 类型。
+- `computeBlameAtEdit(store, workspaceId, filePath, targetEditId)`（卡 51）：纯函数（只读 store），返回 `{content, blame, chain_broken_edit_ids, target_created_at} | null`。从 edit chain 头开始重放到 target，复用 `propagateBlame` 和与 `updateBlameForEdit` 完全一致的链断判定。供 `/api/blame?edit=<id>` 和未来其它历史视图复用。null = target 不属于 (workspace, file)。
 
 ## Endpoints
 
@@ -25,6 +26,10 @@
   - 400 `{error: 'invalid_payload'}`
   - 500 `{error: 'link_failed', message}`
   - 路径匹配在 workspace_id / file_path 上做分隔符归一化（`REPLACE(path, '\', '/')`），桥接 Claude Code hook 的 OS-native 路径（Windows 反斜杠）和 git 返回的 forward-slash relative 路径。
+- `GET /api/blame?workspace=&file=[&edit=<edit_id>]` → `{blame, turns, content, edits, chain_broken_edit_ids}`
+  - 不带 `edit`：走 `line_blame` 表 + `edits` 末尾 blob content（现行行为）
+  - 带 `edit`（卡 51）：调 `computeBlameAtEdit` 做纯函数式重放到该 edit，`content` = 该 edit `after_hash` blob，`blame` = 重放到该步的 BlameRow[]，`chain_broken_edit_ids` = 重放中累计的 break 点。**响应 shape 与不带 edit 完全一致**，UI 不需要分支。
+  - `edit` 不属于 (workspace, file) → 返回空 response（`blame: [], content: ''`），不报 400。
 - `GET /api/blobs/:hash` → 200 `text/plain` body = blob content；`ETag: <hash>`
   - 400 `{error: 'invalid_hash'}` — hash 不是 64 位 hex
   - 404 `{error: 'not_found'}`
@@ -54,6 +59,23 @@
 - 清数据：删除 `<state_dir>/` 整个目录（无外部状态）
 
 ## Changes
+
+### 51-blame-revision-compute (closed 2026-04-30)
+
+**Why**
+让 Revisions popover 点一个版本能真正"时间旅行"——看到当时的文件全文 + 当时的 blame，而不是仅滚到修改处。
+
+**Scope 落地**
+- `blame.ts::computeBlameAtEdit` 纯函数：按 time+id 升序拉该文件 `<= target.created_at` 的 edit 链，循环 `propagateBlame`，链断判定与 `updateBlameForEdit` 对齐（`edit.before_hash !== prior.after_hash` → reset）。
+- `/api/blame` 新增可选 `?edit=<id>`：走 `computeBlameAtEdit`；不带时走现行路径（line_blame + 末尾 blob）。响应 shape 完全对齐。
+- 测试（8 个新）：
+  - `blame.test.ts`: 重放到末尾 edit === 当前 `line_blame`（等价性）、中间 edit content + blame 正确、链断场景、不属于 (workspace, file) → null、缺 blob → content=''。
+  - `api.test.ts`: historical shape 与 live shape 一致、mid-chain content 正确、非法 edit id → 空响应。
+
+**Not in**
+- UI 消费（卡 52）
+- 结果缓存（留后续）
+- AST overlay 按 revision 回退
 
 ### 33-cross-session-search (closed 2026-04-28 — Store + /api/search part)
 

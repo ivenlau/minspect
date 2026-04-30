@@ -146,6 +146,42 @@
   flex: 1;
 }
 
+/* Historical revision banner (card 52). Amber-tinted so it's visually
+   distinct from the blame body but still inline — no modal, no overlay. */
+.revisionBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(210, 153, 34, 0.12);
+  border-bottom: 1px solid rgba(210, 153, 34, 0.45);
+  font-size: var(--fs-11);
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+.revisionBannerIcon {
+  color: var(--warn);
+  flex-shrink: 0;
+}
+.revisionBannerText {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.revisionBannerSpacer {
+  flex: 1;
+}
+.revisionBannerBtn {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--fs-11);
+  padding: 2px 6px;
+  border-radius: var(--radius-3);
+}
+.revisionBannerBtn:hover {
+  background: var(--bg-hover);
+}
+
 /* Blame table.
    `.table` is the scroll container. Virtualization uses absolute
    positioning inside, so NO padding here — it would throw off the

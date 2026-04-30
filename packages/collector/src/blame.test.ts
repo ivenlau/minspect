@@ -1,6 +1,6 @@
 import type { Event, GitState } from '@minspect/core';
 import { describe, expect, it } from 'vitest';
-import { computeHunks, propagateBlame } from './blame.js';
+import { computeBlameAtEdit, computeHunks, propagateBlame } from './blame.js';
 import { Store } from './store.js';
 
 const git: GitState = { branch: 'main', head: 'a', dirty: false };
@@ -297,6 +297,155 @@ describe('updateBlameForEdit (through Store)', () => {
     }>;
     // 2 separate changes at line 2 and line 4 → 2 hunks.
     expect(hunks.length).toBe(2);
+    store.close();
+  });
+});
+
+// ---- computeBlameAtEdit (card 51) ---------------------------------------
+//
+// Seeds a deterministic edit chain through the live ingest path, then
+// replays with `computeBlameAtEdit` and compares against the authoritative
+// `line_blame` / `blobs` state the live path produced.
+
+describe('computeBlameAtEdit', () => {
+  function seedSession(store: Store, workspace: string) {
+    store.ingest({
+      type: 'session_start',
+      session_id: 's',
+      agent: 'claude-code',
+      workspace,
+      git,
+      timestamp: 1,
+    });
+  }
+
+  function addTurn(store: Store, turnId: string, idx: number, t: number) {
+    store.ingest({
+      type: 'turn_start',
+      session_id: 's',
+      turn_id: turnId,
+      idx,
+      user_prompt: `turn ${idx}`,
+      git,
+      timestamp: t,
+    });
+  }
+
+  function edit(
+    turnId: string,
+    tc: string,
+    file: string,
+    before: string | null,
+    after: string,
+    t: number,
+  ): Event {
+    return {
+      type: 'tool_call',
+      session_id: 's',
+      turn_id: turnId,
+      tool_call_id: tc,
+      idx: 0,
+      tool_name: 'Edit',
+      input: {},
+      status: 'ok',
+      file_edits: [{ file_path: file, before_content: before, after_content: after }],
+      started_at: t,
+      ended_at: t + 1,
+    };
+  }
+
+  it('replaying to the last edit equals the live line_blame', () => {
+    const store = new Store(':memory:');
+    seedSession(store, '/ws');
+    addTurn(store, 't1', 0, 2);
+    store.ingest(edit('t1', 'tc1', 'a.ts', null, 'a\nb\nc', 10));
+    addTurn(store, 't2', 1, 11);
+    store.ingest(edit('t2', 'tc2', 'a.ts', 'a\nb\nc', 'a\nB2\nc', 12));
+    addTurn(store, 't3', 2, 13);
+    store.ingest(edit('t3', 'tc3', 'a.ts', 'a\nB2\nc', 'a\nB2\nc\nD', 14));
+
+    const live = store.db
+      .prepare('SELECT line_no, edit_id, turn_id FROM line_blame ORDER BY line_no')
+      .all() as Array<{ line_no: number; edit_id: string; turn_id: string }>;
+
+    const result = computeBlameAtEdit(store, '/ws', 'a.ts', 'tc3:0');
+    expect(result).not.toBeNull();
+    expect(
+      result?.blame.map((b) => ({ line_no: b.line_no, edit_id: b.edit_id, turn_id: b.turn_id })),
+    ).toEqual(live);
+    store.close();
+  });
+
+  it('replaying to a mid-chain edit returns that revision content + blame', () => {
+    const store = new Store(':memory:');
+    seedSession(store, '/ws');
+    addTurn(store, 't1', 0, 2);
+    store.ingest(edit('t1', 'tc1', 'a.ts', null, 'a\nb', 10));
+    addTurn(store, 't2', 1, 11);
+    store.ingest(edit('t2', 'tc2', 'a.ts', 'a\nb', 'a\nb\nc', 12));
+    addTurn(store, 't3', 2, 13);
+    store.ingest(edit('t3', 'tc3', 'a.ts', 'a\nb\nc', 'a\nb\nc\nd', 14));
+
+    // At tc2, file is "a\nb\nc" with line 3 attributed to tc2.
+    const atMid = computeBlameAtEdit(store, '/ws', 'a.ts', 'tc2:0');
+    expect(atMid?.content).toBe('a\nb\nc');
+    expect(atMid?.blame).toHaveLength(3);
+    expect(atMid?.blame.map((b) => b.edit_id)).toEqual(['tc1:0', 'tc1:0', 'tc2:0']);
+    // `d` (added by tc3) is not present in mid-chain replay.
+    expect(atMid?.blame.find((b) => b.line_no === 4)).toBeUndefined();
+    store.close();
+  });
+
+  it('chain break mid-replay: prior attribution resets, flag recorded', () => {
+    const store = new Store(':memory:');
+    seedSession(store, '/ws');
+    addTurn(store, 't1', 0, 2);
+    store.ingest(edit('t1', 'tc1', 'a.ts', null, 'a\nb', 10));
+    addTurn(store, 't2', 1, 11);
+    // User manually changed line 1 between turns — claimed before doesn't
+    // match tc1's after, triggering a chain break on tc2.
+    store.ingest(edit('t2', 'tc2', 'a.ts', 'USER\nb', 'USER\nB2', 12));
+
+    const res = computeBlameAtEdit(store, '/ws', 'a.ts', 'tc2:0');
+    expect(res?.chain_broken_edit_ids).toContain('tc2:0');
+    // After reset, every line attributed to tc2.
+    expect(res?.blame.every((b) => b.edit_id === 'tc2:0')).toBe(true);
+    store.close();
+  });
+
+  it('target edit not in this (workspace, file) → null', () => {
+    const store = new Store(':memory:');
+    seedSession(store, '/ws');
+    addTurn(store, 't1', 0, 2);
+    store.ingest(edit('t1', 'tc1', 'a.ts', null, 'a', 10));
+    // Wrong file path
+    expect(computeBlameAtEdit(store, '/ws', 'b.ts', 'tc1:0')).toBeNull();
+    // Wrong workspace
+    expect(computeBlameAtEdit(store, '/other', 'a.ts', 'tc1:0')).toBeNull();
+    // Unknown edit id
+    expect(computeBlameAtEdit(store, '/ws', 'a.ts', 'bogus')).toBeNull();
+    store.close();
+  });
+
+  it('missing after blob → content === "" but blame still returned', () => {
+    const store = new Store(':memory:');
+    seedSession(store, '/ws');
+    addTurn(store, 't1', 0, 2);
+    store.ingest(edit('t1', 'tc1', 'a.ts', null, 'a\nb', 10));
+    // Simulate vacuum removing the blob (hypothetically — vacuum would not
+    // normally do this because an edit references the hash).
+    const hash = (
+      store.db.prepare('SELECT after_hash FROM edits WHERE id = ?').get('tc1:0') as {
+        after_hash: string;
+      }
+    ).after_hash;
+    store.db.prepare('DELETE FROM blobs WHERE hash = ?').run(hash);
+
+    const res = computeBlameAtEdit(store, '/ws', 'a.ts', 'tc1:0');
+    expect(res?.content).toBe('');
+    // blame attribution still reflects the edit, derived from empty-file
+    // semantics (before null, after '' → no lines).
+    expect(res?.blame).toHaveLength(0);
     store.close();
   });
 });

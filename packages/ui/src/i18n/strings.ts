@@ -414,6 +414,16 @@ export const STRINGS = tbl({
     zh: ({ n }: VarBag) => `版本 (${n})`,
   },
   'blame.revisionsEmpty': { en: 'No edits recorded for this file.', zh: '此文件尚无编辑记录。' },
+  'blame.revisionCurrent': { en: 'current', zh: '当前' },
+  'blame.viewingRevision': {
+    en: ({ when, n, total }: VarBag) => `Viewing revision from ${when} (${n} of ${total})`,
+    zh: ({ when, n, total }: VarBag) => `正在查看 ${when} 的版本（第 ${n} / ${total} 次）`,
+  },
+  'blame.viewingRevisionUnknown': {
+    en: 'Viewing a historical revision',
+    zh: '正在查看历史版本',
+  },
+  'blame.backToCurrent': { en: 'Back to current', zh: '返回当前' },
   'blame.revisionsNoPrompt': { en: '(no prompt recorded)', zh: '（无提示记录）' },
   'blame.noContentTitle': {
     en: 'No content recorded for this file yet',

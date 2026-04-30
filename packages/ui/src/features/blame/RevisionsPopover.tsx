@@ -79,6 +79,10 @@ export function RevisionsPopover({
 
   const turnById = new Map(turns.map((turn) => [turn.id, turn] as const));
   const sorted = [...edits].sort((a, b) => b.created_at - a.created_at);
+  // `sorted[0]` is the newest edit, i.e. the live / "current" state. Mark it
+  // so the user can tell at a glance which row = "what I see without the
+  // revision viewer" (card 52).
+  const currentEditId = sorted[0]?.id ?? null;
 
   const stop = (e: MouseEvent) => e.stopPropagation();
 
@@ -123,6 +127,9 @@ export function RevisionsPopover({
                     {e.session_id.slice(0, 6)} #{turn?.idx ?? '?'}
                   </span>
                   <span className={styles.rowSpacer} />
+                  {e.id === currentEditId && (
+                    <span className={styles.rowCurrent}>{t('blame.revisionCurrent')}</span>
+                  )}
                   <span className={styles.rowHunks}>{t('common.hunks', { n: e.hunk_count })}</span>
                 </div>
                 <div className={styles.rowPrompt} title={prompt}>

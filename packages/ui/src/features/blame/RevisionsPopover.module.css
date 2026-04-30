@@ -109,6 +109,16 @@
   font-size: var(--fs-10);
   color: var(--text-2);
 }
+/* "(current)" tag on the newest edit in the list — card 52. Signals which
+   row matches the default / non-revision view. */
+.rowCurrent {
+  font-size: var(--fs-10);
+  color: var(--accent);
+  padding: 1px 5px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-3);
+  margin-right: 4px;
+}
 
 .rowPrompt {
   font-size: var(--fs-11);

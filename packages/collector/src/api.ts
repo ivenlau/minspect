@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
+import { computeBlameAtEdit } from './blame.js';
 import { detectBadgesForTurn } from './detectors.js';
 import { isRefreshRunning, runRefresh } from './refresh.js';
 import { getStateDir } from './state.js';
@@ -508,24 +509,88 @@ export function registerApi(app: FastifyInstance, store: Store): void {
   });
 
   app.get('/api/blame', async (req) => {
-    const { workspace, file } = req.query as { workspace?: string; file?: string };
+    const {
+      workspace,
+      file,
+      edit: revisionEditId,
+    } = req.query as { workspace?: string; file?: string; edit?: string };
     if (!workspace || !file) {
       return { blame: [], turns: [], content: '', edits: [], chain_broken_edit_ids: [] };
     }
-    // Join line_blame → edits → tool_calls → sessions so each blame row
-    // carries both the tool_call explanation (Claude Code preamble) AND the
-    // session_id needed for per-session colour coding in the new Blame view.
-    const blame = store.db
-      .prepare(
-        `SELECT b.line_no, b.content_hash, b.edit_id, b.turn_id,
-                e.session_id, e.created_at,
-                tc.id AS tool_call_id, tc.tool_name, tc.explanation AS tool_call_explanation
-         FROM line_blame b
-         LEFT JOIN edits e ON e.id = b.edit_id
-         LEFT JOIN tool_calls tc ON tc.id = e.tool_call_id
-         WHERE b.workspace_id = ? AND b.file_path = ? ORDER BY b.line_no`,
-      )
-      .all(workspace, file);
+    // Historical revision view (card 51): when `?edit=<id>` is supplied, we
+    // replay the edit chain up to that point in-memory instead of reading
+    // the live `line_blame` table. The response shape is identical so the
+    // UI doesn't branch.
+    const historical = revisionEditId
+      ? computeBlameAtEdit(store, workspace, file, revisionEditId)
+      : null;
+    if (revisionEditId && !historical) {
+      return { blame: [], turns: [], content: '', edits: [], chain_broken_edit_ids: [] };
+    }
+
+    // Enrich blame rows with edit / tool-call metadata. The live path reads
+    // directly from line_blame; the historical path hydrates the in-memory
+    // rows using a single IN-clause SELECT keyed on edit_id.
+    let blame: Array<{
+      line_no: number;
+      content_hash: string;
+      edit_id: string;
+      turn_id: string;
+      session_id: string | null;
+      created_at: number | null;
+      tool_call_id: string | null;
+      tool_name: string | null;
+      tool_call_explanation: string | null;
+    }>;
+    if (historical) {
+      const editIds = Array.from(new Set(historical.blame.map((b) => b.edit_id)));
+      const metaRows =
+        editIds.length === 0
+          ? []
+          : (store.db
+              .prepare(
+                `SELECT e.id AS edit_id, e.session_id, e.created_at,
+                        tc.id AS tool_call_id, tc.tool_name,
+                        tc.explanation AS tool_call_explanation
+                 FROM edits e LEFT JOIN tool_calls tc ON tc.id = e.tool_call_id
+                 WHERE e.id IN (${editIds.map(() => '?').join(',')})`,
+              )
+              .all(...editIds) as Array<{
+              edit_id: string;
+              session_id: string;
+              created_at: number;
+              tool_call_id: string | null;
+              tool_name: string | null;
+              tool_call_explanation: string | null;
+            }>);
+      const metaByEdit = new Map(metaRows.map((r) => [r.edit_id, r] as const));
+      blame = historical.blame.map((b) => {
+        const m = metaByEdit.get(b.edit_id);
+        return {
+          line_no: b.line_no,
+          content_hash: b.content_hash,
+          edit_id: b.edit_id,
+          turn_id: b.turn_id,
+          session_id: m?.session_id ?? null,
+          created_at: m?.created_at ?? null,
+          tool_call_id: m?.tool_call_id ?? null,
+          tool_name: m?.tool_name ?? null,
+          tool_call_explanation: m?.tool_call_explanation ?? null,
+        };
+      });
+    } else {
+      blame = store.db
+        .prepare(
+          `SELECT b.line_no, b.content_hash, b.edit_id, b.turn_id,
+                  e.session_id, e.created_at,
+                  tc.id AS tool_call_id, tc.tool_name, tc.explanation AS tool_call_explanation
+           FROM line_blame b
+           LEFT JOIN edits e ON e.id = b.edit_id
+           LEFT JOIN tool_calls tc ON tc.id = e.tool_call_id
+           WHERE b.workspace_id = ? AND b.file_path = ? ORDER BY b.line_no`,
+        )
+        .all(workspace, file) as typeof blame;
+    }
     // Distinct turn ids → fetch prompts so UI can label/colour them.
     const turnIds = Array.from(
       new Set((blame as Array<{ turn_id: string }>).map((b) => b.turn_id)),
@@ -569,23 +634,35 @@ export function registerApi(app: FastifyInstance, store: Store): void {
     // edit's after_hash means the user (or another non-captured actor)
     // modified the file between AI edits. Flag those edit IDs so the UI
     // can paint a warning marker on the lines they wrote.
-    const chain_broken_edit_ids: string[] = [];
-    for (let i = 1; i < editsChain.length; i++) {
-      const prev = editsChain[i - 1];
-      const cur = editsChain[i];
-      if (prev && cur && cur.before_hash !== prev.after_hash) {
-        chain_broken_edit_ids.push(cur.id);
+    // (Historical path already produced its own list; reuse it.)
+    let chain_broken_edit_ids: string[];
+    if (historical) {
+      chain_broken_edit_ids = historical.chain_broken_edit_ids;
+    } else {
+      chain_broken_edit_ids = [];
+      for (let i = 1; i < editsChain.length; i++) {
+        const prev = editsChain[i - 1];
+        const cur = editsChain[i];
+        if (prev && cur && cur.before_hash !== prev.after_hash) {
+          chain_broken_edit_ids.push(cur.id);
+        }
       }
     }
 
-    // Best-effort content: last edit's after blob.
-    const last = editsChain[editsChain.length - 1];
+    // Content: the historical path already pinned this to the target
+    // revision's after blob. The live path walks back to the last edit and
+    // reuses the same blob lookup.
     let content = '';
-    if (last) {
-      const blob = store.db
-        .prepare('SELECT content FROM blobs WHERE hash = ?')
-        .get(last.after_hash) as { content: Buffer } | undefined;
-      if (blob) content = blob.content.toString('utf8');
+    if (historical) {
+      content = historical.content;
+    } else {
+      const last = editsChain[editsChain.length - 1];
+      if (last) {
+        const blob = store.db
+          .prepare('SELECT content FROM blobs WHERE hash = ?')
+          .get(last.after_hash) as { content: Buffer } | undefined;
+        if (blob) content = blob.content.toString('utf8');
+      }
     }
     return { blame, turns, content, edits: editsChain, chain_broken_edit_ids };
   });

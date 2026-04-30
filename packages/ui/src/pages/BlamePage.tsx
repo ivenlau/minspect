@@ -2,6 +2,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Clock,
   FileCode,
   FileText,
   History,
@@ -32,6 +33,32 @@ import styles from './BlamePage.module.css';
 // Virtualization math assumes every rendered row is exactly this tall;
 // editing the CSS without updating this constant will drift the scrollbar.
 const ROW_HEIGHT = 22;
+
+// `?rev=<edit_id>` in the hash puts the page in historical-revision mode.
+// Router treats this as page-internal query (same pattern as review/replay
+// filters), so we parse it ourselves and push back via location.hash so
+// back/forward navigation works.
+function readRevFromHash(): string | null {
+  const h = window.location.hash;
+  const qIdx = h.indexOf('?');
+  if (qIdx < 0) return null;
+  // Strip a possible inner '#anchor' tail (useHashAnchor territory).
+  const queryPart = h.slice(qIdx + 1).split('#')[0] ?? '';
+  return new URLSearchParams(queryPart).get('rev');
+}
+
+function writeRevToHash(rev: string | null): void {
+  const h = window.location.hash || '#';
+  const [beforeQ, afterQ] = h.split('?') as [string, string | undefined];
+  const beforeAnchor = (afterQ ?? '').split('#')[0] ?? '';
+  const anchorTail = (afterQ ?? '').slice(beforeAnchor.length);
+  const params = new URLSearchParams(beforeAnchor);
+  if (rev) params.set('rev', rev);
+  else params.delete('rev');
+  const qStr = params.toString();
+  const next = qStr ? `${beforeQ}?${qStr}${anchorTail}` : `${beforeQ}${anchorTail}`;
+  if (next !== h) window.location.hash = next;
+}
 
 export interface BlameRow {
   line_no: number;
@@ -104,7 +131,26 @@ export interface BlamePageProps {
 
 export function BlamePage({ workspace, file }: BlamePageProps) {
   const { t } = useLang();
-  const url = `/api/blame?workspace=${encodeURIComponent(workspace)}&file=${encodeURIComponent(file)}`;
+
+  // Historical revision viewer (card 52). null = showing current state;
+  // non-null = showing the file as it stood after the named edit landed.
+  // State is initialized from the URL and re-synced on hashchange so
+  // back/forward navigation flips revisions correctly.
+  const [revisionEditId, setRevisionEditIdState] = useState<string | null>(() => readRevFromHash());
+  useEffect(() => {
+    const onHash = () => setRevisionEditIdState(readRevFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const setRevisionEditId = (next: string | null) => {
+    writeRevToHash(next);
+    // hashchange will drive setRevisionEditIdState; no double-write needed.
+  };
+
+  const url = useMemo(() => {
+    const base = `/api/blame?workspace=${encodeURIComponent(workspace)}&file=${encodeURIComponent(file)}`;
+    return revisionEditId ? `${base}&edit=${encodeURIComponent(revisionEditId)}` : base;
+  }, [workspace, file, revisionEditId]);
   const { data, error } = usePoll<BlameResp>(url, 10_000);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
   const [hoverTurn] = useState<string | null>(null);
@@ -113,12 +159,12 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
   const [matchIdx, setMatchIdx] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Revisions popover: which edit the user has focused (persistent highlight
-  // across the blame table) and which one is just being hovered (temporary
-  // preview highlight, no scroll). hoveredEditId takes precedence over
-  // selectedEditId for the visual so hover feels responsive.
+  // Revisions popover: hover gives a temporary line-preview highlight over
+  // the blame table. Click (see `handleRevisionSelect` below) now switches
+  // the whole page into that revision's historical view via the URL query,
+  // so there's no separate `selectedEditId` anymore — the data itself is
+  // already scoped to that revision.
   const [revisionsOpen, setRevisionsOpen] = useState(false);
-  const [selectedEditId, setSelectedEditId] = useState<string | null>(null);
   const [hoveredEditId, setHoveredEditId] = useState<string | null>(null);
 
   const { sessionOrder, turnsById, blameByLine, codeLines, chainBroken } = useMemo(() => {
@@ -205,24 +251,25 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
       matchLines.length > 0 ? (i - 1 + matchLines.length) % matchLines.length : 0,
     );
 
-  // Revision highlight: hover wins for preview feel, selected is persistent.
-  // `revisionActiveLine` = first matched line → BlameTable scrolls to it.
-  const focusedEditId = hoveredEditId ?? selectedEditId;
+  // Hover highlight only (card 52 retired click-to-persist-highlight). Click
+  // in the popover now flips the whole page to a historical view via
+  // `setRevisionEditId`, so the on-table attribution is already scoped.
   const revisionHighlightSet = useMemo(() => {
-    if (!focusedEditId) return new Set<number>();
-    const lines = linesForEdit(data?.blame ?? [], focusedEditId);
-    return new Set(lines);
-  }, [focusedEditId, data?.blame]);
+    if (!hoveredEditId) return new Set<number>();
+    return new Set(linesForEdit(data?.blame ?? [], hoveredEditId));
+  }, [hoveredEditId, data?.blame]);
+  // Auto-scroll target: jump to the first line of the just-entered historical
+  // revision so the user lands on the relevant change, not at line 1.
   const revisionActiveLine = useMemo(() => {
-    // Only auto-scroll on explicit selection, not on hover — scrolling on
-    // every mouseenter would feel twitchy.
-    if (!selectedEditId) return null;
-    const lines = linesForEdit(data?.blame ?? [], selectedEditId).sort((a, b) => a - b);
+    if (!revisionEditId) return null;
+    const lines = linesForEdit(data?.blame ?? [], revisionEditId).sort((a, b) => a - b);
     return lines[0] ?? null;
-  }, [selectedEditId, data?.blame]);
+  }, [revisionEditId, data?.blame]);
 
   const handleRevisionSelect = (editId: string) => {
-    setSelectedEditId((prev) => (prev === editId ? null : editId));
+    // Same id clicked twice → back to current. Any other id → switch.
+    setRevisionEditId(revisionEditId === editId ? null : editId);
+    setRevisionsOpen(false);
   };
 
   return (
@@ -314,13 +361,21 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
               open={revisionsOpen}
               edits={data?.edits ?? []}
               turns={data?.turns ?? []}
-              activeEditId={selectedEditId}
+              activeEditId={revisionEditId}
               onHover={setHoveredEditId}
               onSelect={handleRevisionSelect}
               onClose={() => setRevisionsOpen(false)}
             />
           </div>
         </div>
+
+        {revisionEditId && (
+          <RevisionBanner
+            edits={data?.edits ?? []}
+            revisionEditId={revisionEditId}
+            onBack={() => setRevisionEditId(null)}
+          />
+        )}
 
         <HeatStrip blame={data?.blame ?? []} totalLines={lineCount} sessionOrder={sessionOrder} />
 
@@ -740,6 +795,42 @@ function HeatStrip({ blame, totalLines, sessionOrder }: HeatStripProps) {
         // biome-ignore lint/suspicious/noArrayIndexKey: segment index is stable
         <div key={i} className={styles.heatSeg} style={{ background: c }} />
       ))}
+    </div>
+  );
+}
+
+interface RevisionBannerProps {
+  edits: BlameEdit[];
+  revisionEditId: string;
+  onBack: () => void;
+}
+
+// Narrow call-out above the blame table when viewing a historical revision
+// (card 52). Shows when the revision landed + its position in the chain so
+// the user always knows "I'm not on current". Non-blocking — Revert, search,
+// and line selection still work on the displayed (historical) state.
+function RevisionBanner({ edits, revisionEditId, onBack }: RevisionBannerProps) {
+  const { t } = useLang();
+  const idx = edits.findIndex((e) => e.id === revisionEditId);
+  // If the revision id in the URL doesn't match any edit in the current
+  // response (e.g. mid-poll race, invalid deep-link), show a minimal banner
+  // without the "N of M" meta — the underlying API already returned an
+  // empty payload in that case.
+  const total = edits.length;
+  const current = idx >= 0 ? edits[idx] : undefined;
+  const when = current ? new Date(current.created_at).toLocaleString() : t('common.none');
+  return (
+    <div className={styles.revisionBanner}>
+      <Clock size={12} className={styles.revisionBannerIcon} />
+      <span className={styles.revisionBannerText}>
+        {idx >= 0
+          ? t('blame.viewingRevision', { when, n: idx + 1, total })
+          : t('blame.viewingRevisionUnknown')}
+      </span>
+      <span className={styles.revisionBannerSpacer} />
+      <button type="button" className={styles.revisionBannerBtn} onClick={onBack}>
+        → {t('blame.backToCurrent')}
+      </button>
     </div>
   );
 }

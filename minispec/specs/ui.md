@@ -125,6 +125,25 @@
 
 ## Changes
 
+### 52-blame-revision-viewer (closed 2026-04-30)
+
+**Why**
+Revisions popover 从"滚到对应行"升级为"切到那个版本的 content + blame"。
+
+**Scope 落地**
+- `BlamePage`: `revisionEditId: string \| null` state，URL `?rev=<edit_id>` 双向同步（读自 hashchange，写用 `window.location.hash` 触发 `hashchange`，保留浏览器 back/forward）
+- `/api/blame` URL 拼 `&edit=<id>`；响应 shape 和 live 完全一致，page 只改 `url` 一处
+- `RevisionsPopover`: 最新 edit 标注 `(current)` 小 tag；`onSelect` 语义由父组件决定（父组件改成"setRevisionEditId"+ 关 popover），组件本身不区分
+- `handleRevisionSelect`: 再点同一条 = 回 current；点其它 = 切过去
+- 顶部横幅 `RevisionBanner`（amber 色）：`Clock` 图标 + `blame.viewingRevision({when, n, total})` + `→ Back to current` 按钮，`revisionEditId !== null` 时显示
+- 移除旧 `selectedEditId` 态（被 URL-driven revisionEditId 取代；保留 `hoveredEditId` 做 hover 预览高亮）
+- i18n: 新增 4 keys `blame.revisionCurrent` / `blame.viewingRevision` / `blame.viewingRevisionUnknown` / `blame.backToCurrent`
+
+**Known limitations**
+- Codex 来源文件的 after blob 是 hunk 窗口碎片，历史视图与当前视图同构继承（非本卡引入，adapter spec 已知限制）
+
+
+
 ### 39-i18n-full (closed 2026-04-28)
 
 **Why**
