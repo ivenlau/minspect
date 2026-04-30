@@ -77,7 +77,7 @@ export function RevisionsPopover({
 
   if (!open) return null;
 
-  const turnById = new Map(turns.map((t) => [t.id, t] as const));
+  const turnById = new Map(turns.map((turn) => [turn.id, turn] as const));
   const sorted = [...edits].sort((a, b) => b.created_at - a.created_at);
 
   const stop = (e: MouseEvent) => e.stopPropagation();
@@ -103,8 +103,8 @@ export function RevisionsPopover({
       ) : (
         <div className={styles.list}>
           {sorted.map((e) => {
-            const t = turnById.get(e.turn_id);
-            const prompt = (t?.user_prompt ?? '').trim();
+            const turn = turnById.get(e.turn_id);
+            const prompt = (turn?.user_prompt ?? '').trim();
             const isActive = activeEditId === e.id;
             return (
               <button
@@ -120,7 +120,7 @@ export function RevisionsPopover({
                   <span className={styles.rowTime}>{relTime(e.created_at)}</span>
                   <span className={styles.rowSep}>·</span>
                   <span className={styles.rowId}>
-                    {e.session_id.slice(0, 6)} #{t?.idx ?? '?'}
+                    {e.session_id.slice(0, 6)} #{turn?.idx ?? '?'}
                   </span>
                   <span className={styles.rowSpacer} />
                   <span className={styles.rowHunks}>{t('common.hunks', { n: e.hunk_count })}</span>

@@ -69,18 +69,18 @@ export function ReviewPage({ workspace, session }: ReviewPageProps) {
     const fileNeedle = filter.file.toLowerCase();
     const kwNeedle = filter.keyword.toLowerCase();
     const minLevel = LEVEL_ORDER[filter.level] ?? 0;
-    return turns.filter((t) => {
+    return turns.filter((turn) => {
       // File filter: at least one edit's path contains needle.
-      if (fileNeedle && !t.edits.some((e) => e.file_path.toLowerCase().includes(fileNeedle))) {
+      if (fileNeedle && !turn.edits.some((e) => e.file_path.toLowerCase().includes(fileNeedle))) {
         return false;
       }
       // Keyword: search prompt / reasoning / final / any tool explanation.
       if (kwNeedle) {
         const blob = [
-          t.user_prompt ?? '',
-          t.agent_reasoning ?? '',
-          t.agent_final_message ?? '',
-          ...t.edits.map((e) => e.tool_call_explanation ?? ''),
+          turn.user_prompt ?? '',
+          turn.agent_reasoning ?? '',
+          turn.agent_final_message ?? '',
+          ...turn.edits.map((e) => e.tool_call_explanation ?? ''),
         ]
           .join(' ')
           .toLowerCase();
@@ -88,7 +88,7 @@ export function ReviewPage({ workspace, session }: ReviewPageProps) {
       }
       // Level: at least one badge ≥ minLevel.
       if (minLevel > 0) {
-        const has = t.badges.some((b) => (LEVEL_ORDER[b.level] ?? 0) >= minLevel);
+        const has = turn.badges.some((b) => (LEVEL_ORDER[b.level] ?? 0) >= minLevel);
         if (!has) return false;
       }
       return true;
@@ -113,28 +113,28 @@ export function ReviewPage({ workspace, session }: ReviewPageProps) {
           <span className={styles.turnNavSpacer} />
           <span className={styles.turnNavCount}>{turns.length}</span>
         </div>
-        {turns.map((t) => {
-          const visible = matches.includes(t);
-          const top = topBadge(t);
+        {turns.map((turn) => {
+          const visible = matches.includes(turn);
+          const top = topBadge(turn);
           return (
             <ClickRow
-              key={t.id}
+              key={turn.id}
               className={`${styles.turnNavRow} ${visible ? '' : styles.turnNavRowActive}`}
               onClick={() => {
                 // Scroll the matching card into view if present.
-                const el = document.getElementById(`turn-${t.id}`);
+                const el = document.getElementById(`turn-${turn.id}`);
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             >
-              <span className={styles.turnNavBar} style={{ background: barColor(t) }} />
-              <span className={styles.turnNavIdx}>#{t.idx}</span>
+              <span className={styles.turnNavBar} style={{ background: barColor(turn) }} />
+              <span className={styles.turnNavIdx}>#{turn.idx}</span>
               <div className={styles.turnNavBody}>
                 <span className={styles.turnNavPrompt}>
-                  {t.user_prompt.slice(0, 28) || '(no prompt)'}
-                  {t.user_prompt.length > 28 ? '…' : ''}
+                  {turn.user_prompt.slice(0, 28) || '(no prompt)'}
+                  {turn.user_prompt.length > 28 ? '…' : ''}
                 </span>
                 <div className={styles.turnNavMeta}>
-                  <span>{t.edits.length} edits</span>
+                  <span>{turn.edits.length} edits</span>
                   {top && (
                     <span
                       style={{ color: top.level === 'danger' ? 'var(--danger)' : 'var(--warn)' }}
@@ -207,10 +207,10 @@ export function ReviewPage({ workspace, session }: ReviewPageProps) {
               subtitle={t(turns.length === 0 ? 'review.noTurnsSub' : 'review.filterEmptySub')}
             />
           )}
-          {matches.map((t) => (
+          {matches.map((turn) => (
             <TurnCard
-              key={t.id}
-              turn={t}
+              key={turn.id}
+              turn={turn}
               onRevert={(id) => setRevertTarget({ kind: 'turn', id })}
             />
           ))}
