@@ -36,6 +36,26 @@
   color: #fff;
   border-color: var(--danger);
 }
+.resumeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.resumeBtn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.resumeError {
+  font-size: var(--fs-11);
+  color: var(--danger);
+}
 .chips {
   display: flex;
   align-items: center;

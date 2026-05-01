@@ -123,6 +123,7 @@ function agentShort(agent: string | null | undefined): string {
   if (!agent) return '?';
   if (agent === 'claude-code') return 'claude';
   if (agent === 'opencode') return 'open';
+  if (agent === 'codex') return 'codex';
   return agent;
 }
 

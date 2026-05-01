@@ -1,6 +1,6 @@
-import { AlertCircle, MessageSquare, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-import { usePoll } from '../api';
+import { AlertCircle, Check, MessageSquare, Play, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { type RefreshResult, postJson, usePoll } from '../api';
 import { Card } from '../components/Card';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
@@ -55,6 +55,31 @@ function toolCallCount(t: ReviewTurn): Array<{ id: string; tool: string | null }
 export function SessionOverviewPage({ workspace, session }: SessionOverviewPageProps) {
   const { t } = useLang();
   const [showDelete, setShowDelete] = useState(false);
+  const [resumeState, setResumeState] = useState<'idle' | 'ok' | 'error'>('idle');
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    };
+  }, []);
+
+  const handleResume = async () => {
+    setResumeState('idle');
+    setResumeError(null);
+    try {
+      const r = await postJson<{ ok: boolean; command: string }>(`/api/sessions/${encodeURIComponent(session)}/resume`);
+      if (r.ok) {
+        setResumeState('ok');
+        if (resumeTimer.current) clearTimeout(resumeTimer.current);
+        resumeTimer.current = setTimeout(() => setResumeState('idle'), 2000);
+      }
+    } catch (e) {
+      setResumeState('error');
+      setResumeError((e as Error).message);
+    }
+  };
   const url = `/api/review?session=${encodeURIComponent(session)}`;
   const { data, error } = usePoll<ReviewResp>(url, 10_000);
   const turns = data?.turns ?? [];
@@ -87,6 +112,16 @@ export function SessionOverviewPage({ workspace, session }: SessionOverviewPageP
           <h1 className={styles.title}>
             {t('sessionOverview.sessionTitle', { id: session.slice(0, 8) })}
           </h1>
+          {(agent === 'claude-code' || agent === 'codex' || agent === 'opencode') && (
+            <button
+              type="button"
+              className={styles.resumeBtn}
+              onClick={handleResume}
+              title={t('sessionOverview.resumeSession')}
+            >
+              {resumeState === 'ok' ? <Check size={14} /> : <Play size={14} />}
+            </button>
+          )}
           <button
             type="button"
             className={styles.deleteBtn}
@@ -109,6 +144,9 @@ export function SessionOverviewPage({ workspace, session }: SessionOverviewPageP
           <span>·</span>
           <span>{t('sessionOverview.duration', { label: dur })}</span>
         </div>
+        {resumeError && (
+          <span className={styles.resumeError}>{t('sessionOverview.resumeFailed', { msg: resumeError })}</span>
+        )}
       </div>
 
       <div className={styles.statRow}>

@@ -287,6 +287,12 @@ export const STRINGS = tbl({
     en: ({ msg }: VarBag) => `Delete failed: ${msg}`,
     zh: ({ msg }: VarBag) => `删除失败：${msg}`,
   },
+  'sessionOverview.resumeSession': { en: 'Resume in terminal', zh: '在终端中恢复' },
+  'sessionOverview.resumeSuccess': { en: 'Terminal opened', zh: '终端已打开' },
+  'sessionOverview.resumeFailed': {
+    en: ({ msg }: VarBag) => `Resume failed: ${msg}`,
+    zh: ({ msg }: VarBag) => `恢复失败：${msg}`,
+  },
 
   // --- session files page ----------------------------------------------
   'sessionFiles.title': { en: 'Files touched', zh: '涉及文件' },

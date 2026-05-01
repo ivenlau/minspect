@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { computeBlameAtEdit } from './blame.js';
 import { detectBadgesForTurn } from './detectors.js';
 import { isRefreshRunning, runRefresh } from './refresh.js';
+import { spawnResume } from './spawn-resume.js';
 import { getStateDir } from './state.js';
 import type { Store } from './store.js';
 
@@ -481,6 +482,23 @@ export function registerApi(app: FastifyInstance, store: Store): void {
       return { error: 'not_found' };
     }
     return { ok: true };
+  });
+
+  app.post('/api/sessions/:id/resume', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = store.db
+      .prepare('SELECT agent, workspace_id FROM sessions WHERE id = ?')
+      .get(id) as { agent: string; workspace_id: string } | undefined;
+    if (!row) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+    const result = spawnResume(row.agent, id, row.workspace_id);
+    if (!result.ok) {
+      reply.code(400);
+      return { error: result.error ?? 'spawn_failed' };
+    }
+    return { ok: true, command: result.command };
   });
 
   app.get('/api/turns', async (req) => {

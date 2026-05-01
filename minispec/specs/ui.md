@@ -94,6 +94,7 @@
 | GET | `/api/sessions` | 全 workspace 混合，timeline 用 |
 | GET | `/api/sessions/:id/files` | `{files: [{file_path, edit_count, first, last}]}` |
 | DELETE | `/api/sessions/:id` | 删除 session 及所有关联数据（级联删除）；200 `{ok: true}` / 404 `{error: 'not_found'}` |
+| POST | `/api/sessions/:id/resume` | 在新终端窗口执行 agent resume 命令；200 `{ok: true, command}` / 400 `{error: 'unsupported_agent'}` / 404 |
 | GET | `/api/turns?session=` | `{turns: [...]}` 按 idx |
 | GET | `/api/blame?workspace=&file=` | `{blame, turns, content, edits, chain_broken_edit_ids}` — blame 行带 session_id；edits 是该文件的 edit chain；chain_broken_edit_ids 是 before/after hash 不连续的点 |
 | GET | `/api/ast?workspace=&file=` | `{nodes}` |
@@ -125,6 +126,23 @@
 - 新 UI 的 revert 入口在卡 25 重新接线；`/legacy/` 通道已在卡 32 下线，`minspect revert --turn ... --yes` 是唯一执行路径。
 
 ## Changes
+
+### 54-session-resume (closed 2026-05-01)
+
+**Why**
+从 SessionOverviewPage 直接打开终端恢复 agent session，省去手动操作。
+
+**Scope 落地**
+- SessionOverviewPage 新增 Resume 按钮（Play icon），仅 `claude-code` agent 显示
+- 点击调 `POST /api/sessions/:id/resume`，成功按钮短暂显示 ✓（2s），失败显示红色错误文字
+- i18n: 3 个新 key（`resumeSession` / `resumeSuccess` / `resumeFailed`）
+
+**Acceptance（全部通过）**
+- Resume 按钮仅 `claude-code` 显示
+- 成功/失败状态正确反馈
+- 65 UI tests 全绿
+
+> 完整记录：`minispec/archive/54-session-resume.md`.
 
 ### 53-session-delete (closed 2026-05-01)
 

@@ -10,6 +10,7 @@
 - `startServer({store, port?, host?})`：listen 并返回 `{port, stop}`。
 - `state.ts`：`getStateDir()`、`getDbPath()`、`readState()`、`writeState()`、`DaemonState` 类型。
 - `computeBlameAtEdit(store, workspaceId, filePath, targetEditId)`（卡 51）：纯函数（只读 store），返回 `{content, blame, chain_broken_edit_ids, target_created_at} | null`。从 edit chain 头开始重放到 target，复用 `propagateBlame` 和与 `updateBlameForEdit` 完全一致的链断判定。供 `/api/blame?edit=<id>` 和未来其它历史视图复用。null = target 不属于 (workspace, file)。
+- `spawnResume(agent, sessionId, workspacePath)`（卡 54）：跨平台终端 spawn。Windows 写临时 `.bat` + `cmd /c start cmd /k`；macOS 单个 `osascript` 原子调用；Linux `TERMINALS` 表驱动 + `command -v` 检测。`detached: true` + `.unref()` fire-and-forget。
 
 ## Endpoints
 
@@ -38,6 +39,11 @@
   - 400 `{error: 'specify_turn_or_edit'}` — 缺 / 都传
   - 404 `{error: 'not_found'}`
   - 用途：`minspect revert` CLI + UI revert 按钮 modal 的数据源。Server **只读**（不执行写回），写磁盘由 CLI 完成。
+- `POST /api/sessions/:id/resume` → 200 `{ok: true, command: "..."}`
+  - 400 `{error: 'unsupported_agent'}` — agent 不支持 resume（仅 claude-code 支持）
+  - 404 `{error: 'not_found'}`
+  - 查 session 的 `agent` + `workspace_id`，调 `spawnResume` 在新终端窗口执行 agent resume 命令
+  - Windows 设 `CLAUDE_CODE_GIT_BASH_PATH` 环境变量（从注册表读 git 安装路径）
 
 ## Canonical rules
 
@@ -60,6 +66,23 @@
 - 清数据：删除 `<state_dir>/` 整个目录（无外部状态）
 
 ## Changes
+
+### 54-session-resume (closed 2026-05-01)
+
+**Why**
+用户想从 SessionOverviewPage 直接回到 agent 继续对话，省去手动打开终端、cd、输入 resume 命令。
+
+**Scope 落地**
+- `spawnResume(agent, sessionId, workspacePath)`：跨平台终端 spawn。Windows 临时 `.bat` + PowerShell；macOS 单 `osascript` 原子调用；Linux `TERMINALS` 表驱动。
+- `POST /api/sessions/:id/resume`：查 session agent + workspace，调 `spawnResume`。成功 `{ok: true, command}`，不支持 400，未找到 404。
+- Windows 从注册表读 git 安装路径，设 `CLAUDE_CODE_GIT_BASH_PATH`。
+
+**Acceptance（全部通过）**
+- 200/400/404 响应正确
+- Windows PowerShell 窗口弹出并执行 `claude --resume`
+- 107 collector tests 全绿
+
+> 完整记录：`minispec/archive/54-session-resume.md`.
 
 ### 53-session-delete (closed 2026-05-01)
 
