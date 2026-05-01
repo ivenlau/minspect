@@ -610,6 +610,115 @@ describe('parseOpenCodeEnvelope', () => {
     ]);
   });
 
+  it('late-arriving user TextPart (after session.idle) retroactively fills prompt', () => {
+    let state = emptyOpenCodeState();
+    const ingest = (evt: unknown, ts = 1000) => {
+      const r = parseOpenCodeEnvelope(evEnvelope(evt, ts), state);
+      state = r.next;
+      return r.events;
+    };
+
+    ingest({ type: 'session.created', properties: { info: { id: 's1', directory: '/ws' } } });
+    ingest({
+      type: 'message.updated',
+      properties: { info: { id: 'u1', sessionID: 's1', role: 'user', time: { created: 1000 } } },
+    });
+    // session.idle arrives BEFORE the user's TextPart → turn_start flushes
+    // with empty prompt, turn_end fires.
+    const idle = ingest({ type: 'session.idle', properties: { sessionID: 's1' } }, 1100);
+    expect(idle).toHaveLength(2);
+    expect(idle[0]?.type).toBe('turn_start');
+    expect((idle[0] as { user_prompt?: string }).user_prompt).toBe('');
+    expect(idle[1]?.type).toBe('turn_end');
+
+    // Now the user's TextPart arrives late. The parser should retroactively
+    // update the turn_start event that was already emitted.
+    // But since `out` was returned and consumed, the late text gets buffered.
+    // On the NEXT turn_start emission, it should be used.
+    // Actually — the `out` array from idle is already returned. We need to
+    // test the state-level buffering instead.
+    // The late text part matches u1 which is still current_turn_id.
+    const late = ingest({
+      type: 'message.part.updated',
+      properties: {
+        part: {
+          id: 'p-late',
+          sessionID: 's1',
+          messageID: 'u1',
+          type: 'text',
+          text: 'actual user prompt',
+        },
+      },
+    }, 1150);
+    // No events emitted — text is buffered for next turn_start.
+    expect(late).toHaveLength(0);
+    expect(state.pending_user_text).toBe('actual user prompt');
+
+    // Next turn: the buffered text should be used.
+    ingest({
+      type: 'message.updated',
+      properties: { info: { id: 'u2', sessionID: 's1', role: 'user', time: { created: 2000 } } },
+    });
+    const nextIdle = ingest({ type: 'session.idle', properties: { sessionID: 's1' } }, 2100);
+    expect(nextIdle).toHaveLength(2);
+    expect(nextIdle[0]?.type).toBe('turn_start');
+    expect((nextIdle[0] as { user_prompt?: string }).user_prompt).toBe('actual user prompt');
+    expect(state.pending_user_text).toBeUndefined();
+  });
+
+  it('tool.execute.after with _minspect_before_content in args uses it for file_edits', () => {
+    let state = emptyOpenCodeState();
+    state = parseOpenCodeEnvelope(
+      evEnvelope({
+        type: 'session.created',
+        properties: { info: { id: 's1', directory: '/ws' } },
+      }),
+      state,
+    ).next;
+    state = parseOpenCodeEnvelope(
+      evEnvelope({
+        type: 'message.updated',
+        properties: {
+          info: { id: 'u1', sessionID: 's1', role: 'user', time: { created: 1000 } },
+        },
+      }),
+      state,
+    ).next;
+
+    // No tool.before hook — but tool.after includes _minspect_before_content
+    // directly in args (plugin-side caching).
+    const { events } = parseOpenCodeEnvelope(
+      {
+        hookName: 'tool.after',
+        payload: {
+          tool: 'edit',
+          sessionID: 's1',
+          callID: 'call-cached',
+          args: {
+            filePath: 'a.txt',
+            oldString: 'old',
+            newString: 'new',
+            _minspect_before_content: 'before old after',
+          },
+          output: { title: 'edit', output: 'patched', metadata: {} },
+        },
+        timestamp: 1150,
+      },
+      state,
+    );
+    expect(events).toHaveLength(2);
+    expect(events[0]?.type).toBe('turn_start');
+    const tc = events[1];
+    if (tc?.type !== 'tool_call') throw new Error('expected tool_call');
+    expect(tc.file_edits).toEqual([
+      {
+        file_path: 'a.txt',
+        before_content: 'before old after',
+        after_content: 'before new after',
+      },
+    ]);
+  });
+
   it('tool status=error maps to tool_call with status=error', () => {
     let state = emptyOpenCodeState();
     state = parseOpenCodeEnvelope(

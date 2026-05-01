@@ -235,19 +235,22 @@ function onSessionIdle(
 }
 
 // Helper: flush a buffered user turn_start with the given prompt text.
+// Falls back to state.pending_user_text if userPrompt is empty.
 function emitPendingTurnStart(state: OpenCodeParserState, out: Event[], userPrompt: string): void {
   const p = state.pending_turn_start;
   if (!p) return;
+  const prompt = userPrompt || state.pending_user_text || '';
   out.push({
     type: 'turn_start',
     session_id: p.session_id,
     turn_id: p.turn_id,
     idx: p.idx,
-    user_prompt: userPrompt,
+    user_prompt: prompt,
     git: p.git,
     timestamp: p.timestamp,
   });
   state.pending_turn_start = undefined;
+  state.pending_user_text = undefined;
 }
 
 function onMessagePartUpdated(
@@ -279,7 +282,21 @@ function onMessagePartUpdated(
     if (!text) return;
 
     if (messageID && messageID === state.current_turn_id) {
-      if (state.pending_turn_start) emitPendingTurnStart(state, out, text);
+      if (state.pending_turn_start) {
+        emitPendingTurnStart(state, out, text);
+      } else {
+        // Turn already flushed (e.g. session.idle arrived first). Try to
+        // retroactively fill the prompt on the matching turn_start event.
+        const ts = out.find(
+          (e) => e.type === 'turn_start' && e.turn_id === messageID && !e.user_prompt,
+        );
+        if (ts) {
+          (ts as Event & { user_prompt: string }).user_prompt = text;
+        } else {
+          // Buffer for the next emitPendingTurnStart call.
+          state.pending_user_text = text;
+        }
+      }
       return;
     }
     // Assistant text — accumulated by part id so multi-step responses don't
@@ -394,7 +411,12 @@ function handleToolAfter(
 
   const args = p.args ?? {};
   const outputText = p.output?.output ?? null;
-  const beforeContent = state.before_content_by_call[p.callID] ?? null;
+  // before_content can come from two sources:
+  // 1. state (populated by a preceding tool.before hook)
+  // 2. args._minspect_before_content (plugin-side caching in tool.after payload)
+  const beforeFromState = state.before_content_by_call[p.callID];
+  const beforeFromArgs = (args as { _minspect_before_content?: unknown })._minspect_before_content;
+  const beforeContent = beforeFromState ?? (typeof beforeFromArgs === 'string' ? beforeFromArgs : null);
   const fileEdits = extractFileEdits(p.tool, args, beforeContent);
   const startedAt = state.tool_started_at_by_call[p.callID] ?? timestamp;
 

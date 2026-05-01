@@ -247,6 +247,10 @@ export interface OpenCodeParserState {
     timestamp: number;
     git: { branch: string; head: string; dirty: boolean };
   };
+  // User text buffered from a TextPart that arrived before or after its
+  // parent turn_start was flushed. Applied on the next emitPendingTurnStart
+  // or onSessionIdle so the prompt isn't lost.
+  pending_user_text?: string;
   // turn_id for which we've already emitted a turn_end — prevents multiple
   // turn_end events on repeated `message.updated (role=assistant, completed)`.
   last_emitted_turn_end_for?: string;

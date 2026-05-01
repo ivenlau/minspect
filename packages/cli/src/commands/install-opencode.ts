@@ -165,6 +165,10 @@ function safeReadFile(path: string): string | null {
 
 export const MinspectPlugin: Plugin = async () => {
   diag('plugin factory invoked');
+  // Cache before-content snapshots so tool.after can include them directly,
+  // avoiding the race where tool.before's child process hasn't finished
+  // writing to the state file yet.
+  const beforeCache: Record<string, { content: string | null; ts: number }> = {};
   return {
     event: async ({ event }) => {
       const ev = event as Record<string, unknown>;
@@ -193,6 +197,8 @@ export const MinspectPlugin: Plugin = async () => {
           minspect_before = safeReadFile(fp);
         }
       } catch { /* ignore */ }
+      // Cache for tool.after to include directly in its payload.
+      beforeCache[input.callID] = { content: minspect_before, ts: Date.now() };
       const args = output && output.args ? { ...output.args, _minspect_before_content: minspect_before } : { _minspect_before_content: minspect_before };
       fireAndForget({
         hookName: 'tool.before',
@@ -201,9 +207,19 @@ export const MinspectPlugin: Plugin = async () => {
       });
     },
     'tool.execute.after': async (input, output) => {
+      // Include before-content from cache so the parser can record file edits
+      // even if tool.before's child process hasn't finished writing state.
+      const cached = beforeCache[input.callID];
+      delete beforeCache[input.callID];
+      const baseArgs = output && typeof output === 'object' && 'args' in output
+        ? { ...((output as Record<string, unknown>).args as Record<string, unknown>) }
+        : {};
+      if (cached && (input.tool === 'edit' || input.tool === 'write')) {
+        baseArgs._minspect_before_content = cached.content;
+      }
       fireAndForget({
         hookName: 'tool.after',
-        payload: { ...input, output },
+        payload: { ...input, args: baseArgs, output },
         timestamp: Date.now(),
       });
     },
