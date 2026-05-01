@@ -719,6 +719,115 @@ describe('parseOpenCodeEnvelope', () => {
     ]);
   });
 
+  it('late-arriving user TextPart (after tool_call flushed turn_start) carries prompt in turn_end', () => {
+    let state = emptyOpenCodeState();
+    const ingest = (evt: unknown, ts = 1000) => {
+      const r = parseOpenCodeEnvelope(evEnvelope(evt, ts), state);
+      state = r.next;
+      return r.events;
+    };
+
+    ingest({ type: 'session.created', properties: { info: { id: 's1', directory: '/ws' } } });
+    ingest({
+      type: 'message.updated',
+      properties: { info: { id: 'u1', sessionID: 's1', role: 'user', time: { created: 1000 } } },
+    });
+
+    // Tool arrives BEFORE user TextPart → flushes turn_start with empty prompt
+    const toolOut = ingest({
+      type: 'message.part.updated',
+      properties: {
+        part: {
+          id: 'p1',
+          sessionID: 's1',
+          messageID: 'a1',
+          type: 'tool',
+          callID: 'c1',
+          tool: 'write',
+          state: {
+            status: 'completed',
+            input: { file_path: 'a.txt', content: 'hi' },
+            output: 'done',
+            title: 'write a.txt',
+            metadata: {},
+            time: { start: 1100, end: 1150 },
+          },
+        },
+      },
+    }, 1150);
+    expect(toolOut[0]?.type).toBe('turn_start');
+    expect((toolOut[0] as { user_prompt?: string }).user_prompt).toBe('');
+
+    // User TextPart arrives late → buffered as pending_user_text
+    ingest({
+      type: 'message.part.updated',
+      properties: {
+        part: {
+          id: 'p-late',
+          sessionID: 's1',
+          messageID: 'u1',
+          type: 'text',
+          text: 'please write a file',
+        },
+      },
+    }, 1200);
+    expect(state.pending_user_text).toBe('please write a file');
+
+    // session.idle → turn_end should carry the user_prompt
+    const idle = ingest({ type: 'session.idle', properties: { sessionID: 's1' } }, 1300);
+    const te = idle.find((e) => e.type === 'turn_end');
+    expect(te).toBeDefined();
+    if (te?.type !== 'turn_end') throw new Error('expected turn_end');
+    expect(te.user_prompt).toBe('please write a file');
+    expect(state.pending_user_text).toBeUndefined();
+  });
+
+  it('user TextPart arriving before message.updated is cached and flushed', () => {
+    let state = emptyOpenCodeState();
+    const ingest = (evt: unknown, ts = 1000) => {
+      const r = parseOpenCodeEnvelope(evEnvelope(evt, ts), state);
+      state = r.next;
+      return r.events;
+    };
+
+    ingest({ type: 'session.created', properties: { info: { id: 's1', directory: '/ws' } } });
+
+    // First turn: message.updated THEN TextPart (normal order)
+    ingest({
+      type: 'message.updated',
+      properties: { info: { id: 'u1', sessionID: 's1', role: 'user', time: { created: 1000 } } },
+    });
+    ingest({
+      type: 'message.part.updated',
+      properties: { part: { id: 'p1', sessionID: 's1', messageID: 'u1', type: 'text', text: 'first prompt' } },
+    }, 1050);
+    // Flush turn
+    ingest({
+      type: 'message.updated',
+      properties: { info: { id: 'a1', sessionID: 's1', role: 'assistant', time: { created: 1100, completed: 1200 } } },
+    }, 1200);
+    ingest({ type: 'session.idle', properties: { sessionID: 's1' } }, 1300);
+
+    // Second turn: TextPart arrives BEFORE message.updated
+    const earlyText = ingest({
+      type: 'message.part.updated',
+      properties: { part: { id: 'p2', sessionID: 's1', messageID: 'u2', type: 'text', text: 'early prompt' } },
+    }, 2000);
+    // TextPart should be cached, no turn_start emitted yet
+    expect(earlyText).toHaveLength(0);
+    expect(state.pending_text_by_message['u2']).toBe('early prompt');
+
+    // Now message.updated arrives — should flush immediately with the cached text
+    const mu = ingest({
+      type: 'message.updated',
+      properties: { info: { id: 'u2', sessionID: 's1', role: 'user', time: { created: 2100 } } },
+    }, 2100);
+    expect(mu).toHaveLength(1);
+    expect(mu[0]?.type).toBe('turn_start');
+    expect((mu[0] as { user_prompt?: string }).user_prompt).toBe('early prompt');
+    expect(state.pending_text_by_message['u2']).toBeUndefined();
+  });
+
   it('tool status=error maps to tool_call with status=error', () => {
     let state = emptyOpenCodeState();
     state = parseOpenCodeEnvelope(

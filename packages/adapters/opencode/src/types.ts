@@ -264,6 +264,15 @@ export interface OpenCodeParserState {
   // ToolPart "completed" event and a later tool.after hook with the same
   // callID).
   emitted_tool_call_ids: string[];
+  // User TextParts that arrived before their matching message.updated.
+  // OpenCode sometimes fires message.part.updated (type=text, user) before
+  // message.updated (role=user) — we cache by messageID and flush when the
+  // matching message.updated arrives.
+  pending_text_by_message: Record<string, string>;
+  // Assistant message.updated IDs that have already fired. Used by the
+  // TextPart handler to distinguish "TextPart before message.updated" (cache
+  // it) from "TextPart after message.updated" (accumulate directly).
+  seen_assistant_message_ids: string[];
 }
 
 export function emptyOpenCodeState(): OpenCodeParserState {
@@ -277,5 +286,7 @@ export function emptyOpenCodeState(): OpenCodeParserState {
     before_content_by_call: {},
     tool_started_at_by_call: {},
     emitted_tool_call_ids: [],
+    pending_text_by_message: {},
+    seen_assistant_message_ids: [],
   };
 }

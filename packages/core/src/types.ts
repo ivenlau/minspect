@@ -57,6 +57,7 @@ export const TurnEndEventSchema = z.object({
   turn_id: z.string().min(1),
   agent_reasoning: z.string().optional(),
   agent_final_message: z.string().optional(),
+  user_prompt: z.string().optional(),
   timestamp: z.number().int().nonnegative(),
 });
 

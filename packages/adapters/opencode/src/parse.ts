@@ -183,6 +183,7 @@ function onMessageUpdated(
     state.tool_idx_in_turn = 0;
     state.reasoning_by_part_id = {};
     state.text_by_part_id = {};
+    state.seen_assistant_message_ids = [];
     state.pending_reasoning = '';
     state.pending_final_message = '';
     state.pending_turn_start = {
@@ -193,6 +194,14 @@ function onMessageUpdated(
       git,
     };
     state.turn_idx += 1;
+    // OpenCode sometimes fires message.part.updated (user text) BEFORE
+    // message.updated (user). If we already cached the text, flush the
+    // turn_start immediately.
+    const cachedText = state.pending_text_by_message[info.id];
+    if (cachedText) {
+      delete state.pending_text_by_message[info.id];
+      emitPendingTurnStart(state, out, cachedText);
+    }
     return;
   }
 
@@ -204,6 +213,16 @@ function onMessageUpdated(
   // for real and waiting for the next user input.
   if (info.role === 'assistant') {
     state.current_assistant_message_id = info.id;
+    // A TextPart may have arrived before this message.updated — flush cached
+    // text to the assistant accumulator so it isn't lost.
+    const cachedAssistant = state.pending_text_by_message[info.id];
+    if (cachedAssistant) {
+      delete state.pending_text_by_message[info.id];
+      state.text_by_part_id[info.id] = cachedAssistant;
+    }
+    // Track that this assistant message.updated has fired so the TextPart
+    // handler knows to accumulate directly (vs caching for a future flush).
+    state.seen_assistant_message_ids.push(info.id);
   }
 }
 
@@ -219,6 +238,15 @@ function onSessionIdle(
   if (state.last_emitted_turn_end_for === state.current_turn_id) return;
   if (state.pending_turn_start) emitPendingTurnStart(state, out, '');
 
+  // Flush any remaining cached TextParts (from messages whose message.updated
+  // never arrived) into the text accumulator so they aren't silently lost.
+  for (const [msgId, cached] of Object.entries(state.pending_text_by_message)) {
+    if (cached && !state.text_by_part_id[msgId]) {
+      state.text_by_part_id[msgId] = cached;
+    }
+  }
+  state.pending_text_by_message = {};
+
   // Rebuild flattened views from the part-id maps for consistency.
   state.pending_reasoning = Object.values(state.reasoning_by_part_id).filter(Boolean).join('\n\n');
   state.pending_final_message = Object.values(state.text_by_part_id).filter(Boolean).join('\n\n');
@@ -228,9 +256,11 @@ function onSessionIdle(
     turn_id: state.current_turn_id,
     ...(state.pending_reasoning ? { agent_reasoning: state.pending_reasoning } : {}),
     ...(state.pending_final_message ? { agent_final_message: state.pending_final_message } : {}),
+    ...(state.pending_user_text ? { user_prompt: state.pending_user_text } : {}),
     timestamp: ts,
   });
   state.last_emitted_turn_end_for = state.current_turn_id;
+  state.pending_user_text = undefined;
   void props;
 }
 
@@ -299,8 +329,22 @@ function onMessagePartUpdated(
       }
       return;
     }
-    // Assistant text — accumulated by part id so multi-step responses don't
-    // clobber each other.
+    // TextPart whose messageID doesn't match current_turn_id.
+    // Two cases:
+    //   1. message.updated for this messageID hasn't fired yet → cache it
+    //      so onMessageUpdated can flush when the event arrives.
+    //   2. message.updated already fired (assistant) → accumulate directly.
+    if (messageID && state.seen_assistant_message_ids.includes(messageID)) {
+      // Case 2: assistant message.updated already fired — accumulate now.
+      if (partId) state.text_by_part_id[partId] = text;
+      return;
+    }
+    // Case 1: cache for later flush by onMessageUpdated.
+    if (messageID) {
+      state.pending_text_by_message[messageID] = text;
+      return;
+    }
+    // No messageID — fallback: treat as assistant text accumulated by part id.
     if (partId) state.text_by_part_id[partId] = text;
     return;
   }
@@ -532,6 +576,8 @@ function cloneState(s: OpenCodeParserState): OpenCodeParserState {
     before_content_by_call: { ...s.before_content_by_call },
     tool_started_at_by_call: { ...s.tool_started_at_by_call },
     emitted_tool_call_ids: [...s.emitted_tool_call_ids],
+    pending_text_by_message: { ...s.pending_text_by_message },
+    seen_assistant_message_ids: [...s.seen_assistant_message_ids],
   };
 }
 

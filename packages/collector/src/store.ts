@@ -366,22 +366,26 @@ export class Store {
     // wrote this call. COALESCE makes turn_end writes idempotent — FTS should
     // only index the *first* non-null value to avoid duplicate rows.
     const before = this.db
-      .prepare('SELECT session_id, agent_reasoning, agent_final_message FROM turns WHERE id = ?')
+      .prepare('SELECT session_id, user_prompt, agent_reasoning, agent_final_message FROM turns WHERE id = ?')
       .get(e.turn_id) as
-      | { session_id: string; agent_reasoning: string | null; agent_final_message: string | null }
+      | { session_id: string; user_prompt: string; agent_reasoning: string | null; agent_final_message: string | null }
       | undefined;
     this.db
       .prepare(
         `UPDATE turns
          SET ended_at = COALESCE(ended_at, ?),
              agent_reasoning = COALESCE(agent_reasoning, ?),
-             agent_final_message = COALESCE(agent_final_message, ?)
+             agent_final_message = COALESCE(agent_final_message, ?),
+             user_prompt = CASE WHEN user_prompt = '' AND ? != '' THEN ? ELSE user_prompt END
          WHERE id = ?`,
       )
-      .run(e.timestamp, e.agent_reasoning ?? null, e.agent_final_message ?? null, e.turn_id);
+      .run(e.timestamp, e.agent_reasoning ?? null, e.agent_final_message ?? null, e.user_prompt ?? '', e.user_prompt ?? '', e.turn_id);
     if (before) {
       const wsid = this.workspaceIdFor(before.session_id);
       if (wsid) {
+        if (before.user_prompt === '' && e.user_prompt) {
+          this.ftsInsert('prompt', e.turn_id, before.session_id, wsid, e.user_prompt);
+        }
         if (before.agent_reasoning == null && e.agent_reasoning) {
           this.ftsInsert('reasoning', e.turn_id, before.session_id, wsid, e.agent_reasoning);
         }
