@@ -24,10 +24,9 @@
   gap: var(--sp-2);
 }
 .brandDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
 }
 
 .crumb {

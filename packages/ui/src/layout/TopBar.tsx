@@ -25,7 +25,7 @@ export function TopBar({ crumbs = [], tabs, rightSlot, connected = true, port }:
     <header className={styles.bar}>
       <div className={styles.brand}>
         <a href="#/">
-          <span className={styles.brandDot} />
+          <img src="/favicon.svg" alt="minspect" className={styles.brandDot} />
           <span>{t('topbar.brand')}</span>
         </a>
       </div>
