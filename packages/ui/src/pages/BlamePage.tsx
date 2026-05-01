@@ -5,6 +5,7 @@ import {
   Clock,
   FileCode,
   FileText,
+  GitCompareArrows,
   History,
   Search,
   Undo2,
@@ -23,6 +24,7 @@ import { usePoll } from '../api';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
 import { RevisionsPopover, linesForEdit } from '../features/blame/RevisionsPopover';
+import { CompareModal } from '../features/blame/CompareModal';
 import { useVirtualRows } from '../features/blame/useVirtualRows';
 import { RevertModal, type RevertTarget } from '../features/revert/RevertModal';
 import { useLang } from '../i18n';
@@ -167,6 +169,26 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
   // already scoped to that revision.
   const [revisionsOpen, setRevisionsOpen] = useState(false);
   const [hoveredEditId, setHoveredEditId] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  const handleToggleCompare = (editId: string) => {
+    setSelectedForCompare((prev) => {
+      const next = new Set(prev);
+      if (next.has(editId)) {
+        next.delete(editId);
+      } else {
+        if (next.size >= 2) {
+          // Remove the earliest selected (first in insertion order).
+          const first = next.values().next().value;
+          if (first) next.delete(first);
+        }
+        next.add(editId);
+      }
+      return next;
+    });
+  };
 
   const { sessionOrder, turnsById, blameByLine, codeLines, chainBroken } = useMemo(() => {
     const order = new Map<string, number>();
@@ -358,6 +380,18 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
                 <span className={styles.btnBadge}>{data?.edits?.length}</span>
               )}
             </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${compareMode ? styles.btnActive : ''}`}
+              onClick={() => {
+                setCompareMode((v) => !v);
+                if (compareMode) setSelectedForCompare(new Set());
+                if (!compareMode) setRevisionsOpen(true);
+              }}
+              title={t('blame.compareMode')}
+            >
+              <GitCompareArrows size={12} />
+            </button>
             <RevisionsPopover
               open={revisionsOpen}
               edits={data?.edits ?? []}
@@ -366,6 +400,13 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
               onHover={setHoveredEditId}
               onSelect={handleRevisionSelect}
               onClose={() => setRevisionsOpen(false)}
+              compareMode={compareMode}
+              selectedForCompare={selectedForCompare}
+              onToggleCompare={handleToggleCompare}
+              onOpenCompare={() => {
+                setCompareOpen(true);
+                setRevisionsOpen(false);
+              }}
             />
           </div>
         </div>
@@ -407,6 +448,26 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
 
         {revertTarget && (
           <RevertModal target={revertTarget} onClose={() => setRevertTarget(null)} />
+        )}
+
+        {compareOpen && selectedForCompare.size === 2 && data?.edits && (
+          (() => {
+            const ids = [...selectedForCompare];
+            const eL = data.edits.find((e) => e.id === ids[0]);
+            const eR = data.edits.find((e) => e.id === ids[1]);
+            if (!eL || !eR) return null;
+            const [left, right] = eL.created_at <= eR.created_at ? [eL, eR] : [eR, eL];
+            return (
+              <CompareModal
+                editLeft={left}
+                editRight={right}
+                turns={data.turns}
+                workspace={workspace}
+                file={file}
+                onClose={() => setCompareOpen(false)}
+              />
+            );
+          })()
         )}
       </div>
       <aside className={styles.inspectorPane}>

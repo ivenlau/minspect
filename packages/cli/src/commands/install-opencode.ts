@@ -168,7 +168,7 @@ export const MinspectPlugin: Plugin = async () => {
   // Cache before-content snapshots so tool.after can include them directly,
   // avoiding the race where tool.before's child process hasn't finished
   // writing to the state file yet.
-  const beforeCache: Record<string, { content: string | null; ts: number }> = {};
+  const beforeCache: Record<string, { content: string | null; beforeOutput: unknown; ts: number }> = {};
   return {
     event: async ({ event }) => {
       const ev = event as Record<string, unknown>;
@@ -198,7 +198,7 @@ export const MinspectPlugin: Plugin = async () => {
         }
       } catch { /* ignore */ }
       // Cache for tool.after to include directly in its payload.
-      beforeCache[input.callID] = { content: minspect_before, ts: Date.now() };
+      beforeCache[input.callID] = { content: minspect_before, beforeOutput: output, ts: Date.now() };
       const args = output && output.args ? { ...output.args, _minspect_before_content: minspect_before } : { _minspect_before_content: minspect_before };
       fireAndForget({
         hookName: 'tool.before',
@@ -209,17 +209,20 @@ export const MinspectPlugin: Plugin = async () => {
     'tool.execute.after': async (input, output) => {
       // Include before-content from cache so the parser can record file edits
       // even if tool.before's child process hasn't finished writing state.
+      // Use cached beforeOutput (which has the original args) because the
+      // after-hook's output is the tool *result*, not the args.
       const cached = beforeCache[input.callID];
       delete beforeCache[input.callID];
-      const baseArgs = output && typeof output === 'object' && 'args' in output
-        ? { ...((output as Record<string, unknown>).args as Record<string, unknown>) }
+      const beforeOutput = cached?.beforeOutput as Record<string, unknown> | undefined;
+      const toolArgs = beforeOutput && typeof beforeOutput === 'object' && 'args' in beforeOutput
+        ? { ...(beforeOutput.args as Record<string, unknown>) }
         : {};
       if (cached && (input.tool === 'edit' || input.tool === 'write')) {
-        baseArgs._minspect_before_content = cached.content;
+        toolArgs._minspect_before_content = cached.content;
       }
       fireAndForget({
         hookName: 'tool.after',
-        payload: { ...input, args: baseArgs, output },
+        payload: { ...input, args: toolArgs, output },
         timestamp: Date.now(),
       });
     },

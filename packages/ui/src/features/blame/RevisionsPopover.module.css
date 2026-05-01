@@ -128,3 +128,55 @@
   white-space: nowrap;
   line-height: 1.4;
 }
+
+/* --- compare mode --- */
+
+.rowWrap {
+  display: flex;
+  align-items: stretch;
+}
+.checkboxWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-right: 1px solid var(--border-subtle);
+}
+.checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.compareFooter {
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: center;
+}
+.compareBtn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-inv);
+  background: var(--accent);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+.compareBtn:hover {
+  opacity: 0.9;
+}
+.compareHint {
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: var(--fs-10);
+  color: var(--text-2);
+}

@@ -482,6 +482,19 @@ export const STRINGS = tbl({
     zh: ({ line, turnIdx }: VarBag) => `第 ${line} 行 · 轮次 #${turnIdx}`,
   },
 
+  // --- compare revisions -------------------------------------------------
+  'blame.compareMode': { en: 'Compare mode', zh: '对比模式' },
+  'blame.compareSelected': {
+    en: ({ n }: VarBag) => `Compare selected (${n})`,
+    zh: ({ n }: VarBag) => `对比选中版本 (${n})`,
+  },
+  'blame.compareTitle': { en: 'Compare revisions', zh: '版本对比' },
+  'blame.compareLeft': { en: 'Earlier', zh: '较早版本' },
+  'blame.compareRight': { en: 'Later', zh: '较新版本' },
+  'blame.compareSelectHint': { en: 'Select 2 revisions to compare', zh: '请选择 2 个版本进行对比' },
+  'blame.compareNoContent': { en: 'Content unavailable (blob may have been vacuumed)', zh: '内容不可用（blob 可能已被清理）' },
+  'blame.compareCheckboxLabel': { en: 'Select for compare', zh: '选择对比' },
+
   // --- command palette --------------------------------------------------
   'palette.placeholder': {
     en: 'Search across sessions (prompts, reasoning, tool-call explanations, file paths)...',

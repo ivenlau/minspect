@@ -139,6 +139,9 @@ importers:
       '@fontsource/jetbrains-mono':
         specifier: ^5.1.1
         version: 5.2.8
+      diff:
+        specifier: ^7.0.0
+        version: 7.0.0
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@18.3.1)
@@ -149,6 +152,9 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@types/diff':
+        specifier: ^7.0.2
+        version: 7.0.2
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.28

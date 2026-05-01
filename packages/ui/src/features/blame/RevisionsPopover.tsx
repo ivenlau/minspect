@@ -1,4 +1,4 @@
-import { History, PencilLine, X } from 'lucide-react';
+import { GitCompareArrows, History, PencilLine, X } from 'lucide-react';
 import { type MouseEvent, useEffect, useRef } from 'react';
 import { t as tStatic, useLang } from '../../i18n';
 import type { BlameEdit, BlameTurn } from '../../pages/BlamePage';
@@ -12,6 +12,10 @@ export interface RevisionsPopoverProps {
   onHover: (editId: string | null) => void;
   onSelect: (editId: string) => void;
   onClose: () => void;
+  compareMode: boolean;
+  selectedForCompare: Set<string>;
+  onToggleCompare: (editId: string) => void;
+  onOpenCompare: () => void;
 }
 
 // Relative-time formatter tailored for a few seconds → a few days. Anything
@@ -48,6 +52,10 @@ export function RevisionsPopover({
   onHover,
   onSelect,
   onClose,
+  compareMode,
+  selectedForCompare,
+  onToggleCompare,
+  onOpenCompare,
 }: RevisionsPopoverProps) {
   const { t } = useLang();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -105,40 +113,69 @@ export function RevisionsPopover({
       {sorted.length === 0 ? (
         <div className={styles.empty}>{t('blame.revisionsEmpty')}</div>
       ) : (
-        <div className={styles.list}>
-          {sorted.map((e) => {
-            const turn = turnById.get(e.turn_id);
-            const prompt = (turn?.user_prompt ?? '').trim();
-            const isActive = activeEditId === e.id;
-            return (
+        <>
+          <div className={styles.list}>
+            {sorted.map((e) => {
+              const turn = turnById.get(e.turn_id);
+              const prompt = (turn?.user_prompt ?? '').trim();
+              const isActive = activeEditId === e.id;
+              const isChecked = selectedForCompare.has(e.id);
+              return (
+                <div key={e.id} className={styles.rowWrap}>
+                  {compareMode && (
+                    <label className={styles.checkboxWrap} title={t('blame.compareCheckboxLabel')}>
+                      <input
+                        type="checkbox"
+                        className={styles.checkbox}
+                        checked={isChecked}
+                        onChange={() => onToggleCompare(e.id)}
+                      />
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    className={`${styles.row} ${isActive ? styles.rowActive : ''}`}
+                    onMouseEnter={() => onHover(e.id)}
+                    onMouseLeave={() => onHover(null)}
+                    onClick={() => onSelect(e.id)}
+                  >
+                    <div className={styles.rowHdr}>
+                      <PencilLine size={11} className={styles.rowIcon} />
+                      <span className={styles.rowTime}>{relTime(e.created_at)}</span>
+                      <span className={styles.rowSep}>·</span>
+                      <span className={styles.rowId}>
+                        {e.session_id.slice(0, 6)} #{turn?.idx ?? '?'}
+                      </span>
+                      <span className={styles.rowSpacer} />
+                      {e.id === currentEditId && (
+                        <span className={styles.rowCurrent}>{t('blame.revisionCurrent')}</span>
+                      )}
+                      <span className={styles.rowHunks}>{t('common.hunks', { n: e.hunk_count })}</span>
+                    </div>
+                    <div className={styles.rowPrompt} title={prompt}>
+                      {prompt || t('blame.revisionsNoPrompt')}
+                    </div>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {compareMode && selectedForCompare.size === 2 && (
+            <div className={styles.compareFooter}>
               <button
                 type="button"
-                key={e.id}
-                className={`${styles.row} ${isActive ? styles.rowActive : ''}`}
-                onMouseEnter={() => onHover(e.id)}
-                onMouseLeave={() => onHover(null)}
-                onClick={() => onSelect(e.id)}
+                className={styles.compareBtn}
+                onClick={onOpenCompare}
               >
-                <div className={styles.rowHdr}>
-                  <PencilLine size={11} className={styles.rowIcon} />
-                  <span className={styles.rowTime}>{relTime(e.created_at)}</span>
-                  <span className={styles.rowSep}>·</span>
-                  <span className={styles.rowId}>
-                    {e.session_id.slice(0, 6)} #{turn?.idx ?? '?'}
-                  </span>
-                  <span className={styles.rowSpacer} />
-                  {e.id === currentEditId && (
-                    <span className={styles.rowCurrent}>{t('blame.revisionCurrent')}</span>
-                  )}
-                  <span className={styles.rowHunks}>{t('common.hunks', { n: e.hunk_count })}</span>
-                </div>
-                <div className={styles.rowPrompt} title={prompt}>
-                  {prompt || t('blame.revisionsNoPrompt')}
-                </div>
+                <GitCompareArrows size={13} />
+                {t('blame.compareSelected', { n: 2 })}
               </button>
-            );
-          })}
-        </div>
+            </div>
+          )}
+          {compareMode && selectedForCompare.size < 2 && (
+            <div className={styles.compareHint}>{t('blame.compareSelectHint')}</div>
+          )}
+        </>
       )}
     </div>
   );
