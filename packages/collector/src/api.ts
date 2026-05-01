@@ -569,6 +569,7 @@ export function registerApi(app: FastifyInstance, store: Store): void {
       tool_call_id: string | null;
       tool_name: string | null;
       tool_call_explanation: string | null;
+      is_pre_existing: boolean;
     }>;
     if (historical) {
       const editIds = Array.from(new Set(historical.blame.map((b) => b.edit_id)));
@@ -604,25 +605,28 @@ export function registerApi(app: FastifyInstance, store: Store): void {
           tool_call_id: m?.tool_call_id ?? null,
           tool_name: m?.tool_name ?? null,
           tool_call_explanation: m?.tool_call_explanation ?? null,
+          is_pre_existing: b.edit_id === '',
         };
       });
     } else {
-      blame = store.db
-        .prepare(
-          `SELECT b.line_no, b.content_hash, b.edit_id, b.turn_id,
-                  e.session_id, e.created_at,
-                  tc.id AS tool_call_id, tc.tool_name, tc.explanation AS tool_call_explanation
-           FROM line_blame b
-           LEFT JOIN edits e ON e.id = b.edit_id
-           LEFT JOIN tool_calls tc ON tc.id = e.tool_call_id
-           WHERE b.workspace_id = ? AND b.file_path = ? ORDER BY b.line_no`,
-        )
-        .all(workspace, file) as typeof blame;
+      blame = (
+        store.db
+          .prepare(
+            `SELECT b.line_no, b.content_hash, b.edit_id, b.turn_id,
+                    e.session_id, e.created_at,
+                    tc.id AS tool_call_id, tc.tool_name, tc.explanation AS tool_call_explanation
+             FROM line_blame b
+             LEFT JOIN edits e ON e.id = b.edit_id
+             LEFT JOIN tool_calls tc ON tc.id = e.tool_call_id
+             WHERE b.workspace_id = ? AND b.file_path = ? ORDER BY b.line_no`,
+          )
+          .all(workspace, file) as Array<Omit<(typeof blame)[number], 'is_pre_existing'>>
+      ).map((r) => ({ ...r, is_pre_existing: r.edit_id === '' }));
     }
     // Distinct turn ids → fetch prompts so UI can label/colour them.
     const turnIds = Array.from(
       new Set((blame as Array<{ turn_id: string }>).map((b) => b.turn_id)),
-    );
+    ).filter((id) => id !== '');
     const turns =
       turnIds.length === 0
         ? []

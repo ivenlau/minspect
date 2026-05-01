@@ -127,6 +127,18 @@
 
 ## Changes
 
+### 55-blame-pre-existing (closed 2026-05-01)
+
+**Why**
+BlamePage 把已存在文件的所有行都染成 AI 编辑色，无法区分原文和 AI 改动。
+
+**Scope 落地**
+- `BlameRow` 接口新增 `is_pre_existing: boolean`
+- BlameTable：pre-existing 行灰色 bar（`var(--bg-2)`）、无 turn label、`.codeUser` 样式
+- LineInspector：点击 pre-existing 行显示 "原始内容" 说明，不显示 Revert 按钮
+- i18n：新增 `blame.inspector.preExisting`（en/zh）
+- 65 UI tests 全绿
+
 ### 54-session-resume (closed 2026-05-01)
 
 **Why**

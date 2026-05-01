@@ -87,17 +87,40 @@ export function propagateBlame(args: {
   const { workspace_id, file_path, prior_blame, before_lines, after_lines, edit_id, turn_id } =
     args;
 
-  // When chain is broken or there's no prior, attribute every new line to
-  // this edit.
+  // When chain is broken or there's no prior blame:
+  // - Brand-new file (before_lines empty): all lines belong to this edit.
+  // - File existed (before_lines non-empty): diff to find actually-changed
+  //   lines; only those get attributed to this edit. Unchanged lines are
+  //   marked as pre-existing (edit_id = '').
   if (prior_blame === null) {
-    return after_lines.map((line, i) => ({
-      workspace_id,
-      file_path,
-      line_no: i + 1,
-      content_hash: sha256(line),
-      edit_id,
-      turn_id,
-    }));
+    if (before_lines.length === 0) {
+      return after_lines.map((line, i) => ({
+        workspace_id,
+        file_path,
+        line_no: i + 1,
+        content_hash: sha256(line),
+        edit_id,
+        turn_id,
+      }));
+    }
+    const diff = diffArrays(before_lines, after_lines);
+    const result: BlameRow[] = [];
+    let newIdx = 0;
+    for (const part of diff) {
+      if (part.removed) continue;
+      for (const line of part.value) {
+        newIdx += 1;
+        result.push({
+          workspace_id,
+          file_path,
+          line_no: newIdx,
+          content_hash: sha256(line),
+          edit_id: part.added ? edit_id : '',
+          turn_id: part.added ? turn_id : '',
+        });
+      }
+    }
+    return result;
   }
 
   // Index prior blame by old line_no for O(1) lookup.

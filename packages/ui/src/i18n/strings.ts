@@ -473,6 +473,10 @@ export const STRINGS = tbl({
     en: 'Select a line to see the turn that wrote it, reasoning, related edits, and Revert actions.',
     zh: '选中一行查看写入它的轮次、思考过程、相关编辑和回滚操作。',
   },
+  'blame.inspector.preExisting': {
+    en: 'Pre-existing content — this line was not modified by any tracked AI edit.',
+    zh: '原始内容 — 此行未被任何已追踪的 AI 编辑修改。',
+  },
   'blame.inspector.lineTurnTitle': {
     en: ({ line, turnIdx }: VarBag) => `Line ${line} · turn #${turnIdx}`,
     zh: ({ line, turnIdx }: VarBag) => `第 ${line} 行 · 轮次 #${turnIdx}`,

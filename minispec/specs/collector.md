@@ -67,6 +67,21 @@
 
 ## Changes
 
+### 55-blame-pre-existing (closed 2026-05-01)
+
+**Why**
+Blame 页面把文件所有行归到首次 AI edit，即使只有几行被改。根因：`propagateBlame` 在 `prior_blame === null` 时跳过 diff。
+
+**Scope 落地**
+- `propagateBlame`：`prior_blame === null` 且 `before_lines` 非空时，用 `diffArrays` 区分变更行和未变行。未变行 `edit_id: ''`（sentinel），变更行归当前 edit。
+- `/api/blame` 响应新增 `is_pre_existing: boolean` 标记（`edit_id === ''`）。
+- `turnIds` 过滤掉空字符串，避免无意义查询。
+
+**Acceptance（全部通过）**
+- 首次 AI 编辑已存在文件时，只有变更行归 AI edit，其余显示 pre-existing
+- 全新文件（before_content === null）所有行仍归当前 edit
+- 109 collector tests 全绿
+
 ### 54-session-resume (closed 2026-05-01)
 
 **Why**

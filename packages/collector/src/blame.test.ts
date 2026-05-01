@@ -148,7 +148,7 @@ describe('propagateBlame', () => {
     expect(result.every((r) => r.edit_id === 'e0')).toBe(true);
   });
 
-  it('broken chain (prior_blame=null): all lines attributed to current edit', () => {
+  it('broken chain (prior_blame=null, before_lines non-empty): only changed lines attributed', () => {
     const result = propagateBlame({
       workspace_id: 'w',
       file_path: 'a.ts',
@@ -158,7 +158,21 @@ describe('propagateBlame', () => {
       edit_id: 'e1',
       turn_id: 't1',
     });
-    expect(result.map((r) => r.edit_id)).toEqual(['e1', 'e1', 'e1']);
+    // 'a' and 'b' unchanged → pre-existing; 'c' added → attributed to e1
+    expect(result.map((r) => r.edit_id)).toEqual(['', '', 'e1']);
+  });
+
+  it('prior_blame=null with empty before_lines: all lines attributed (new file)', () => {
+    const result = propagateBlame({
+      workspace_id: 'w',
+      file_path: 'a.ts',
+      prior_blame: null,
+      before_lines: [],
+      after_lines: ['x', 'y'],
+      edit_id: 'e1',
+      turn_id: 't1',
+    });
+    expect(result.map((r) => r.edit_id)).toEqual(['e1', 'e1']);
   });
 });
 
@@ -219,6 +233,26 @@ describe('updateBlameForEdit (through Store)', () => {
     store.close();
   });
 
+  it('first edit on existing file: only changed lines attributed, rest pre-existing', () => {
+    const store = new Store(':memory:');
+    seedSession(store, '/ws');
+    // File already existed with 3 lines; AI edits line 2.
+    store.ingest(
+      toolCall(
+        { session: 's', turn: 't1', tc: 'tc1', idx: 0 },
+        'a.ts',
+        'alpha\nbeta\ngamma',
+        'alpha\nBETA\ngamma',
+        10,
+      ),
+    );
+    const rows = store.db
+      .prepare('SELECT line_no, edit_id FROM line_blame ORDER BY line_no')
+      .all() as Array<{ line_no: number; edit_id: string }>;
+    expect(rows.map((r) => r.edit_id)).toEqual(['', 'tc1:0', '']);
+    store.close();
+  });
+
   it('second edit inheriting chain: unchanged lines keep prior edit_id', () => {
     const store = new Store(':memory:');
     seedSession(store, '/ws');
@@ -245,7 +279,7 @@ describe('updateBlameForEdit (through Store)', () => {
     store.close();
   });
 
-  it('broken chain: before_content mismatches prior after → all lines attributed to current edit', () => {
+  it('broken chain: before_content mismatches prior after → only changed lines attributed', () => {
     const store = new Store(':memory:');
     seedSession(store, '/ws');
     // Edit 1 sets file to "a\nb"
@@ -274,8 +308,8 @@ describe('updateBlameForEdit (through Store)', () => {
     const rows = store.db
       .prepare('SELECT line_no, edit_id FROM line_blame ORDER BY line_no')
       .all() as Array<{ line_no: number; edit_id: string }>;
-    // Both lines attributed to the new edit since chain is broken.
-    expect(rows.every((r) => r.edit_id === 'tc2:0')).toBe(true);
+    // Line 1 unchanged (USER_EDITED) → pre-existing; line 2 changed → tc2:0
+    expect(rows.map((r) => r.edit_id)).toEqual(['', 'tc2:0']);
     store.close();
   });
 
@@ -408,8 +442,8 @@ describe('computeBlameAtEdit', () => {
 
     const res = computeBlameAtEdit(store, '/ws', 'a.ts', 'tc2:0');
     expect(res?.chain_broken_edit_ids).toContain('tc2:0');
-    // After reset, every line attributed to tc2.
-    expect(res?.blame.every((b) => b.edit_id === 'tc2:0')).toBe(true);
+    // 'USER' unchanged → pre-existing; 'B2' changed (was 'b') → tc2:0
+    expect(res?.blame.map((b) => b.edit_id)).toEqual(['', 'tc2:0']);
     store.close();
   });
 

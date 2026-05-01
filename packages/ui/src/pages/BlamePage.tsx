@@ -70,6 +70,7 @@ export interface BlameRow {
   tool_call_id: string | null;
   tool_name: string | null;
   tool_call_explanation: string | null;
+  is_pre_existing: boolean;
 }
 
 export interface BlameTurn {
@@ -499,15 +500,16 @@ function BlameTable({
     const code = codeLines[i] ?? '';
     const lineNo = i + 1;
     const row = blameByLine.get(lineNo);
-    const color = row ? sessionColor(row.session_id, sessionOrder) : 'var(--bg-2)';
-    const isBroken = row ? chainBroken.has(row.edit_id) : false;
+    const isPreExisting = row?.is_pre_existing === true;
+    const color = row && !isPreExisting ? sessionColor(row.session_id, sessionOrder) : 'var(--bg-2)';
+    const isBroken = row && !isPreExisting ? chainBroken.has(row.edit_id) : false;
     const isSelected = selectedLine === lineNo;
-    const isSameTurn = hoverTurn != null && row != null && row.turn_id === hoverTurn && !isSelected;
+    const isSameTurn = hoverTurn != null && row != null && !isPreExisting && row.turn_id === hoverTurn && !isSelected;
     const isMatch = matchSet.has(lineNo);
     const isActiveMatch = activeMatch === lineNo;
     const isRevision = revisionSet.has(lineNo);
     const isRevisionActive = revisionActiveLine === lineNo;
-    const turn = row ? turnsById.get(row.turn_id) : null;
+    const turn = row && !isPreExisting ? turnsById.get(row.turn_id) : null;
     rows.push(
       <ClickRow
         key={lineNo}
@@ -518,9 +520,9 @@ function BlameTable({
         <span className={`${styles.ln} ${isSelected ? styles.lnSelected : ''}`}>{lineNo}</span>
         <span className={styles.bar} style={{ background: isBroken ? 'var(--danger)' : color }} />
         <span className={styles.turn} style={{ color: isBroken ? 'var(--danger)' : color }}>
-          {row ? ` ${row.session_id.slice(0, 6)}·#${turn?.idx ?? '?'} ` : ''}
+          {turn ? ` ${row!.session_id.slice(0, 6)}·#${turn.idx} ` : ''}
         </span>
-        <span className={`${styles.code} ${!row ? styles.codeUser : ''}`}>{code || ' '}</span>
+        <span className={`${styles.code} ${!row || isPreExisting ? styles.codeUser : ''}`}>{code || ' '}</span>
       </ClickRow>,
     );
   }
@@ -568,6 +570,23 @@ function LineInspector({
 }: LineInspectorProps) {
   const { t } = useLang();
   if (selectedLine == null || !selectedRow || !selectedTurn) {
+    if (selectedRow?.is_pre_existing) {
+      return (
+        <Inspector
+          title={t('blame.inspector.lineTurnTitle', { line: selectedLine!, turnIdx: '—' })}
+          body={
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Section label={t('blame.inspector.file')} mono>
+                {file}
+              </Section>
+              <div style={{ color: 'var(--text-2)', fontSize: 12 }}>
+                {t('blame.inspector.preExisting')}
+              </div>
+            </div>
+          }
+        />
+      );
+    }
     return (
       <Inspector
         title={t('blame.inspector.title')}
