@@ -40,6 +40,50 @@ export class Store {
     this.db.close();
   }
 
+  // Delete a session and all related data in a single transaction.
+  // Returns true if the session existed and was deleted, false if not found.
+  deleteSession(sessionId: string): boolean {
+    const txn = this.db.transaction(() => {
+      const session = this.db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
+      if (!session) return false;
+
+      // Delete in dependency order (child tables first).
+      // tool_calls (via turns)
+      this.db.prepare(
+        `DELETE FROM tool_calls WHERE turn_id IN (SELECT id FROM turns WHERE session_id = ?)`,
+      ).run(sessionId);
+      // hunks (via edits)
+      this.db.prepare(
+        `DELETE FROM hunks WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+      ).run(sessionId);
+      // line_blame (via edits)
+      this.db.prepare(
+        `DELETE FROM line_blame WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+      ).run(sessionId);
+      // commit_links (via edits)
+      this.db.prepare(
+        `DELETE FROM commit_links WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+      ).run(sessionId);
+      // edit_ast_impact (via edits)
+      this.db.prepare(
+        `DELETE FROM edit_ast_impact WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+      ).run(sessionId);
+      // search_index (direct session_id)
+      if (this.ftsEnabled) {
+        this.db.prepare('DELETE FROM search_index WHERE session_id = ?').run(sessionId);
+      }
+      // turns
+      this.db.prepare('DELETE FROM turns WHERE session_id = ?').run(sessionId);
+      // edits
+      this.db.prepare('DELETE FROM edits WHERE session_id = ?').run(sessionId);
+      // sessions
+      this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+
+      return true;
+    });
+    return txn();
+  }
+
   // One-shot backfill: if search_index is empty but there's existing content
   // (upgrade case), replay turns / tool_calls / edits into the FTS table.
   // Runs in the constructor and is a no-op once rows exist.

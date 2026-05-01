@@ -32,5 +32,6 @@ export interface ReviewTurn {
 }
 
 export interface ReviewResp {
+  agent: string | null;
   turns: ReviewTurn[];
 }

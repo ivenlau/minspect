@@ -1,8 +1,10 @@
-import { AlertCircle, MessageSquare } from 'lucide-react';
+import { AlertCircle, MessageSquare, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { usePoll } from '../api';
 import { Card } from '../components/Card';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
+import { ConfirmDeleteModal } from '../features/session/ConfirmDeleteModal';
 import type { ReviewResp, ReviewTurn } from '../features/session/types';
 import { useLang } from '../i18n';
 import { hrefFor, navigate } from '../router';
@@ -52,6 +54,7 @@ function toolCallCount(t: ReviewTurn): Array<{ id: string; tool: string | null }
 
 export function SessionOverviewPage({ workspace, session }: SessionOverviewPageProps) {
   const { t } = useLang();
+  const [showDelete, setShowDelete] = useState(false);
   const url = `/api/review?session=${encodeURIComponent(session)}`;
   const { data, error } = usePoll<ReviewResp>(url, 10_000);
   const turns = data?.turns ?? [];
@@ -75,12 +78,24 @@ export function SessionOverviewPage({ workspace, session }: SessionOverviewPageP
   const touchedFiles = new Set(turns.flatMap((t) => t.edits.map((e) => e.file_path))).size;
   const dur = started && ended ? fmtDuration(ended - started) : '—';
 
+  const agent = data?.agent ?? 'unknown';
+
   return (
     <div className={styles.page}>
       <div className={styles.hdr}>
-        <h1 className={styles.title}>
-          {t('sessionOverview.sessionTitle', { id: session.slice(0, 8) })}
-        </h1>
+        <div className={styles.titleRow}>
+          <h1 className={styles.title}>
+            {t('sessionOverview.sessionTitle', { id: session.slice(0, 8) })}
+          </h1>
+          <button
+            type="button"
+            className={styles.deleteBtn}
+            onClick={() => setShowDelete(true)}
+            title={t('sessionOverview.deleteSession')}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
         <div className={styles.chips}>
           <span className={styles.chip}>{session}</span>
           <span>·</span>
@@ -175,6 +190,15 @@ export function SessionOverviewPage({ workspace, session }: SessionOverviewPageP
           )}
         </div>
       </Card>
+      {showDelete && (
+        <ConfirmDeleteModal
+          sessionId={session}
+          agent={agent}
+          startedAt={started}
+          onClose={() => setShowDelete(false)}
+          onDeleted={() => navigate(hrefFor({ kind: 'workspace', workspace }))}
+        />
+      )}
     </div>
   );
 }

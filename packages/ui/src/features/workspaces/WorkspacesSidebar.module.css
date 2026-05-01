@@ -154,3 +154,13 @@
   font-size: var(--fs-10);
   color: var(--text-2);
 }
+.agentTag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: var(--radius-2);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  line-height: 1.3;
+}

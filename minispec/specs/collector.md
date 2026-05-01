@@ -5,6 +5,7 @@
 ## Public surface
 
 - `Store(dbPath)`：SQLite 连接 + 自动 `applyMigrations`。方法 `ingest(event)` 单事务写入；`close()` 关闭。
+- `Store.deleteSession(id)`：单事务级联删除 session 及其所有 turns、tool_calls、edits、hunks、line_blame、commit_links、edit_ast_impact、search_index。返回 boolean（是否存在并删除）。
 - `createServer(store)`：返回 `FastifyInstance`；含 `POST /events`、`GET /health`。
 - `startServer({store, port?, host?})`：listen 并返回 `{port, stop}`。
 - `state.ts`：`getStateDir()`、`getDbPath()`、`readState()`、`writeState()`、`DaemonState` 类型。
@@ -59,6 +60,23 @@
 - 清数据：删除 `<state_dir>/` 整个目录（无外部状态）
 
 ## Changes
+
+### 53-session-delete (closed 2026-05-01)
+
+**Why**
+用户积累的 session 数据越来越多，无用 session 占据 sidebar / timeline / workspace 列表，干扰浏览。需要提供 session 级别的删除功能。
+
+**Scope 落地**
+- `Store.deleteSession(id)`：单事务级联删除 tool_calls → hunks → line_blame → commit_links → edit_ast_impact → search_index → turns → edits → sessions。返回 boolean。
+- `DELETE /api/sessions/:id`：成功返回 `{ok: true}`，未找到返回 404。
+- `/api/review` 响应新增 `agent` 字段，供删除 modal 显示 agent 信息。
+
+**Acceptance（全部通过）**
+- `DELETE /api/sessions/<id>` 返回 200 `{ok: true}`，所有关联数据删除
+- `DELETE /api/sessions/<不存在的id>` 返回 404
+- 107 collector tests 全绿
+
+> 完整记录：`minispec/archive/53-session-delete.md`.
 
 ### 51-blame-revision-compute (closed 2026-04-30)
 

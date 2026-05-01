@@ -93,6 +93,7 @@
 | GET | `/api/dashboard` | Dashboard 聚合：30 日 activity、top workspaces、top agents、alerts、recent feed |
 | GET | `/api/sessions` | 全 workspace 混合，timeline 用 |
 | GET | `/api/sessions/:id/files` | `{files: [{file_path, edit_count, first, last}]}` |
+| DELETE | `/api/sessions/:id` | 删除 session 及所有关联数据（级联删除）；200 `{ok: true}` / 404 `{error: 'not_found'}` |
 | GET | `/api/turns?session=` | `{turns: [...]}` 按 idx |
 | GET | `/api/blame?workspace=&file=` | `{blame, turns, content, edits, chain_broken_edit_ids}` — blame 行带 session_id；edits 是该文件的 edit chain；chain_broken_edit_ids 是 before/after hash 不连续的点 |
 | GET | `/api/ast?workspace=&file=` | `{nodes}` |
@@ -124,6 +125,27 @@
 - 新 UI 的 revert 入口在卡 25 重新接线；`/legacy/` 通道已在卡 32 下线，`minspect revert --turn ... --yes` 是唯一执行路径。
 
 ## Changes
+
+### 53-session-delete (closed 2026-05-01)
+
+**Why**
+无用 session 占据 sidebar / timeline / workspace 列表，干扰浏览。需要提供 session 删除功能并要求二次确认。
+
+**Scope 落地**
+- `ConfirmDeleteModal` 组件：显示 session ID、agent、开始时间，警告不可撤销，取消/确认按钮
+- `SessionOverviewPage` 顶部添加删除按钮（Trash2 icon），点击弹出 ConfirmDeleteModal
+- 删除成功后跳转到所属 workspace 页面
+- WorkspacesSidebar session 列表新增 agent 标签（`agentShort`：claude-code→claude, opencode→open, codex→codex）
+- i18n: 6 个新 key（deleteSession / deleteConfirmTitle / deleteConfirmMessage / deleteConfirmWarning / deleteConfirmButton / deleteFailed）
+- `/api/review` 响应新增 `agent` 字段
+
+**Acceptance（全部通过）**
+- SessionOverviewPage 右上角有删除按钮
+- 点击弹出确认 modal，显示 session 信息 + 警告
+- 确认删除后跳转 workspace 页面
+- 65 UI tests 全绿
+
+> 完整记录：`minispec/archive/53-session-delete.md`.
 
 ### 52-blame-revision-viewer (closed 2026-04-30)
 

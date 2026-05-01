@@ -119,6 +119,13 @@ function timeOfDay(ts: number): string {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
+function agentShort(agent: string | null | undefined): string {
+  if (!agent) return '?';
+  if (agent === 'claude-code') return 'claude';
+  if (agent === 'opencode') return 'open';
+  return agent;
+}
+
 export function WorkspacesSidebar({ activeWorkspace, activeSession }: WorkspacesSidebarProps) {
   const { t } = useLang();
   const { data } = usePoll<ListResp>('/api/workspaces', 5000);
@@ -228,6 +235,7 @@ function SessionList({
               <span className={styles.dot} />
             )}
             <span className={styles.sessId}>{s.id.slice(0, 8)}</span>
+            <span className={styles.agentTag}>{agentShort(s.agent)}</span>
             <span className={styles.sessTime}>{timeOfDay(s.started_at)}</span>
           </ClickRow>
         );

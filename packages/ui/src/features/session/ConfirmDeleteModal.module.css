@@ -1,0 +1,80 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg-1);
+  color: var(--text-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6);
+  padding: 16px 20px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: var(--shadow-modal);
+}
+.h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-14);
+}
+.message {
+  font-size: var(--fs-12);
+  color: var(--text-2);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.warn {
+  border-left: 3px solid var(--danger);
+  padding: 6px 10px;
+  margin: 8px 0;
+  background: rgba(200, 57, 44, 0.1);
+  font-size: var(--fs-12);
+  font-weight: 500;
+}
+.error {
+  border-left: 3px solid var(--danger);
+  padding: 6px 10px;
+  margin: 8px 0;
+  background: rgba(200, 57, 44, 0.1);
+  font-size: var(--fs-12);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.btn {
+  font: inherit;
+  font-size: var(--fs-11);
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  background: var(--bg-1);
+  color: var(--text-0);
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--bg-hover);
+}
+.btnDanger {
+  font: inherit;
+  font-size: var(--fs-11);
+  padding: 4px 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-3);
+  background: var(--danger);
+  color: #fff;
+  cursor: pointer;
+}
+.btnDanger:hover {
+  opacity: 0.9;
+}
+.btnDanger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

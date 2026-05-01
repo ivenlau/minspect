@@ -270,6 +270,23 @@ export const STRINGS = tbl({
     en: ({ label }: VarBag) => `duration ${label}`,
     zh: ({ label }: VarBag) => `时长 ${label}`,
   },
+  'sessionOverview.deleteSession': { en: 'Delete session', zh: '删除会话' },
+  'sessionOverview.deleteConfirmTitle': { en: 'Delete session?', zh: '确认删除会话？' },
+  'sessionOverview.deleteConfirmMessage': {
+    en: ({ id, agent }: VarBag) =>
+      `Session ${id} (agent: ${agent}). All turns, edits, and blame data will be permanently removed.`,
+    zh: ({ id, agent }: VarBag) =>
+      `会话 ${id}（代理：${agent}）。所有轮次、编辑和追溯数据将被永久删除。`,
+  },
+  'sessionOverview.deleteConfirmWarning': {
+    en: 'This action cannot be undone.',
+    zh: '此操作不可撤销。',
+  },
+  'sessionOverview.deleteConfirmButton': { en: 'Delete', zh: '删除' },
+  'sessionOverview.deleteFailed': {
+    en: ({ msg }: VarBag) => `Delete failed: ${msg}`,
+    zh: ({ msg }: VarBag) => `删除失败：${msg}`,
+  },
 
   // --- session files page ----------------------------------------------
   'sessionFiles.title': { en: 'Files touched', zh: '涉及文件' },

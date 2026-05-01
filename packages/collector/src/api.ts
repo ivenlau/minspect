@@ -473,6 +473,16 @@ export function registerApi(app: FastifyInstance, store: Store): void {
     return { files: rows };
   });
 
+  app.delete('/api/sessions/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const deleted = store.deleteSession(id);
+    if (!deleted) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+    return { ok: true };
+  });
+
   app.get('/api/turns', async (req) => {
     const { session } = req.query as { session?: string };
     if (!session) return { turns: [] };
@@ -670,6 +680,9 @@ export function registerApi(app: FastifyInstance, store: Store): void {
   app.get('/api/review', async (req) => {
     const { session } = req.query as { session?: string };
     if (!session) return { turns: [] };
+    const sess = store.db.prepare('SELECT agent FROM sessions WHERE id = ?').get(session) as
+      | { agent: string }
+      | undefined;
     const turns = store.db
       .prepare(
         `SELECT id, idx, user_prompt, agent_reasoning, agent_final_message, started_at, ended_at
@@ -693,7 +706,7 @@ export function registerApi(app: FastifyInstance, store: Store): void {
       })),
       badges: detectBadgesForTurn(store, t.id),
     }));
-    return { turns: enriched };
+    return { agent: sess?.agent ?? null, turns: enriched };
   });
 
   app.get('/api/ast', async (req) => {
