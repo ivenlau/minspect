@@ -162,6 +162,27 @@ function buildRevertPlan(store: Store, turn?: string, edit?: string): RevertPlan
          FROM edits WHERE turn_id = ? ORDER BY created_at`,
       )
       .all(turn) as EditRow[];
+    // Turn exists but has no edits (pure text conversation) — return empty plan.
+    if (targetEdits.length === 0) {
+      const turnRow = store.db
+        .prepare('SELECT session_id FROM turns WHERE id = ?')
+        .get(turn) as { session_id: string } | undefined;
+      if (!turnRow) return null;
+      const sess = store.db
+        .prepare('SELECT agent FROM sessions WHERE id = ?')
+        .get(turnRow.session_id) as { agent: string } | undefined;
+      return {
+        target_kind: 'turn',
+        target_id: turn,
+        source_agent: sess?.agent ?? null,
+        files: [],
+        warnings: {
+          codex_source: false,
+          chain_broken_user_edits: [],
+          later_edits_will_be_lost: [],
+        },
+      };
+    }
   } else {
     targetKind = 'edit';
     targetId = edit as string;
@@ -622,6 +643,17 @@ export function registerApi(app: FastifyInstance, store: Store): void {
   app.delete('/api/sessions/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const deleted = store.deleteSession(id);
+    if (!deleted) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+    return { ok: true };
+  });
+
+  app.delete('/api/workspaces/:path', async (req, reply) => {
+    const { path: pathParam } = req.params as { path: string };
+    const path = decodeURIComponent(pathParam);
+    const deleted = store.deleteWorkspace(path);
     if (!deleted) {
       reply.code(404);
       return { error: 'not_found' };

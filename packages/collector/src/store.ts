@@ -84,6 +84,36 @@ export class Store {
     return txn();
   }
 
+  // Delete a workspace and all related data in a single transaction.
+  // Returns true if the workspace existed and was deleted, false if not found.
+  deleteWorkspace(workspaceId: string): boolean {
+    const txn = this.db.transaction(() => {
+      const ws = this.db.prepare('SELECT id FROM workspaces WHERE id = ?').get(workspaceId);
+      if (!ws) return false;
+
+      // Delete each session (cascades through turns, edits, hunks, etc.)
+      const sessionIds = this.db
+        .prepare('SELECT id FROM sessions WHERE workspace_id = ?')
+        .all(workspaceId) as Array<{ id: string }>;
+      for (const s of sessionIds) {
+        this.deleteSession(s.id);
+      }
+
+      // Tables keyed directly on workspace_id (not covered by deleteSession).
+      this.db.prepare('DELETE FROM line_blame WHERE workspace_id = ?').run(workspaceId);
+      this.db.prepare('DELETE FROM ast_nodes WHERE workspace_id = ?').run(workspaceId);
+      this.db.prepare('DELETE FROM commit_links WHERE workspace_id = ?').run(workspaceId);
+      if (this.ftsEnabled) {
+        this.db.prepare('DELETE FROM search_index WHERE workspace_id = ?').run(workspaceId);
+      }
+
+      // Workspace row itself.
+      this.db.prepare('DELETE FROM workspaces WHERE id = ?').run(workspaceId);
+      return true;
+    });
+    return txn();
+  }
+
   // One-shot backfill: if search_index is empty but there's existing content
   // (upgrade case), replay turns / tool_calls / edits into the FTS table.
   // Runs in the constructor and is a no-op once rows exist.

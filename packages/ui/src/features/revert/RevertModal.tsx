@@ -237,7 +237,7 @@ export function RevertModal({ target, onClose }: RevertModalProps) {
             )}
             {applyError && <div className={styles.error}>{applyError}</div>}
             <div className={styles.actions}>
-              {plan && !plan.warnings.codex_source && !result && (
+              {plan && !plan.warnings.codex_source && !result && plan.files.length > 0 && (
                 <button
                   type="button"
                   className={styles.btnAccent}

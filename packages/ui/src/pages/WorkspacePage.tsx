@@ -1,4 +1,5 @@
-import { Clock, FileText } from 'lucide-react';
+import { Clock, FileText, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { usePoll } from '../api';
 import { Card } from '../components/Card';
 import { ClickRow } from '../components/ClickRow';
@@ -7,6 +8,7 @@ import { LiveDot } from '../components/Skeleton';
 import { useLang } from '../i18n';
 import { Inspector } from '../layout/Inspector';
 import { hrefFor, navigate } from '../router';
+import { ConfirmDeleteWorkspaceModal } from '../features/workspaces/ConfirmDeleteWorkspaceModal';
 import styles from './WorkspacePage.module.css';
 
 export interface WorkspaceDetail {
@@ -49,6 +51,7 @@ export function WorkspacePage({ workspace }: WorkspacePageProps) {
   const { t } = useLang();
   const url = `/api/workspaces/${encodeURIComponent(workspace)}`;
   const { data, error } = usePoll<WorkspaceDetail>(url, 5000);
+  const [showDelete, setShowDelete] = useState(false);
 
   if (error) {
     return (
@@ -69,6 +72,15 @@ export function WorkspacePage({ workspace }: WorkspacePageProps) {
       <div className={styles.hdr}>
         <h1 className={styles.title}>{pathTail(workspace)}</h1>
         <span className={styles.pathText}>{workspace}</span>
+        <span style={{ flex: 1 }} />
+        <button
+          type="button"
+          className={styles.deleteBtn}
+          onClick={() => setShowDelete(true)}
+          title={t('sessionOverview.deleteSession')}
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
 
       <div className={styles.statRow}>
@@ -153,6 +165,13 @@ export function WorkspacePage({ workspace }: WorkspacePageProps) {
           </div>
         </Card>
       </div>
+
+      {showDelete && (
+        <ConfirmDeleteWorkspaceModal
+          workspacePath={workspace}
+          onClose={() => setShowDelete(false)}
+        />
+      )}
     </div>
   );
 }

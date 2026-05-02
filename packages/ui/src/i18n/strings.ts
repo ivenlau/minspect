@@ -287,6 +287,24 @@ export const STRINGS = tbl({
     en: ({ msg }: VarBag) => `Delete failed: ${msg}`,
     zh: ({ msg }: VarBag) => `删除失败：${msg}`,
   },
+  // --- workspace delete ------------------------------------------------
+  'workspace.deleteConfirmTitle': { en: 'Delete workspace?', zh: '确认删除工作区？' },
+  'workspace.deleteConfirmMessage': {
+    en: ({ name }: VarBag) =>
+      `This will permanently remove all sessions, edits, and blame data for workspace "${name}".`,
+    zh: ({ name }: VarBag) =>
+      `将永久删除工作区 "${name}" 的所有会话、编辑和 blame 数据。`,
+  },
+  'workspace.deleteConfirmWarning': {
+    en: 'This action cannot be undone. Files on disk are not affected.',
+    zh: '此操作不可撤销。磁盘上的文件不受影响。',
+  },
+  'workspace.deleteConfirmButton': { en: 'Delete workspace', zh: '删除工作区' },
+  'workspace.deleteFailed': {
+    en: ({ msg }: VarBag) => `Delete failed: ${msg}`,
+    zh: ({ msg }: VarBag) => `删除失败：${msg}`,
+  },
+
   'sessionOverview.resumeSession': { en: 'Resume in terminal', zh: '在终端中恢复' },
   'sessionOverview.resumeSuccess': { en: 'Terminal opened', zh: '终端已打开' },
   'sessionOverview.resumeFailed': {
