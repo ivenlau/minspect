@@ -5,7 +5,6 @@ import {
   Clock,
   FileCode,
   FileText,
-  GitCompareArrows,
   History,
   Search,
   Undo2,
@@ -23,8 +22,8 @@ import {
 import { usePoll } from '../api';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
-import { RevisionsPopover, linesForEdit } from '../features/blame/RevisionsPopover';
 import { CompareModal } from '../features/blame/CompareModal';
+import { RevisionsPopover, linesForEdit } from '../features/blame/RevisionsPopover';
 import { useVirtualRows } from '../features/blame/useVirtualRows';
 import { RevertModal, type RevertTarget } from '../features/revert/RevertModal';
 import { useLang } from '../i18n';
@@ -169,7 +168,6 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
   // already scoped to that revision.
   const [revisionsOpen, setRevisionsOpen] = useState(false);
   const [hoveredEditId, setHoveredEditId] = useState<string | null>(null);
-  const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
 
@@ -380,18 +378,6 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
                 <span className={styles.btnBadge}>{data?.edits?.length}</span>
               )}
             </button>
-            <button
-              type="button"
-              className={`${styles.btn} ${compareMode ? styles.btnActive : ''}`}
-              onClick={() => {
-                setCompareMode((v) => !v);
-                if (compareMode) setSelectedForCompare(new Set());
-                if (!compareMode) setRevisionsOpen(true);
-              }}
-              title={t('blame.compareMode')}
-            >
-              <GitCompareArrows size={12} />
-            </button>
             <RevisionsPopover
               open={revisionsOpen}
               edits={data?.edits ?? []}
@@ -400,7 +386,6 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
               onHover={setHoveredEditId}
               onSelect={handleRevisionSelect}
               onClose={() => setRevisionsOpen(false)}
-              compareMode={compareMode}
               selectedForCompare={selectedForCompare}
               onToggleCompare={handleToggleCompare}
               onOpenCompare={() => {
@@ -450,7 +435,9 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
           <RevertModal target={revertTarget} onClose={() => setRevertTarget(null)} />
         )}
 
-        {compareOpen && selectedForCompare.size === 2 && data?.edits && (
+        {compareOpen &&
+          selectedForCompare.size === 2 &&
+          data?.edits &&
           (() => {
             const ids = [...selectedForCompare];
             const eL = data.edits.find((e) => e.id === ids[0]);
@@ -467,8 +454,7 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
                 onClose={() => setCompareOpen(false)}
               />
             );
-          })()
-        )}
+          })()}
       </div>
       <aside className={styles.inspectorPane}>
         <LineInspector
@@ -562,10 +548,16 @@ function BlameTable({
     const lineNo = i + 1;
     const row = blameByLine.get(lineNo);
     const isPreExisting = row?.is_pre_existing === true;
-    const color = row && !isPreExisting ? sessionColor(row.session_id, sessionOrder) : 'var(--bg-2)';
+    const color =
+      row && !isPreExisting ? sessionColor(row.session_id, sessionOrder) : 'var(--bg-2)';
     const isBroken = row && !isPreExisting ? chainBroken.has(row.edit_id) : false;
     const isSelected = selectedLine === lineNo;
-    const isSameTurn = hoverTurn != null && row != null && !isPreExisting && row.turn_id === hoverTurn && !isSelected;
+    const isSameTurn =
+      hoverTurn != null &&
+      row != null &&
+      !isPreExisting &&
+      row.turn_id === hoverTurn &&
+      !isSelected;
     const isMatch = matchSet.has(lineNo);
     const isActiveMatch = activeMatch === lineNo;
     const isRevision = revisionSet.has(lineNo);
@@ -581,9 +573,11 @@ function BlameTable({
         <span className={`${styles.ln} ${isSelected ? styles.lnSelected : ''}`}>{lineNo}</span>
         <span className={styles.bar} style={{ background: isBroken ? 'var(--danger)' : color }} />
         <span className={styles.turn} style={{ color: isBroken ? 'var(--danger)' : color }}>
-          {turn ? ` ${row!.session_id.slice(0, 6)}·#${turn.idx} ` : ''}
+          {turn ? ` ${row?.session_id.slice(0, 6)}·#${turn.idx} ` : ''}
         </span>
-        <span className={`${styles.code} ${!row || isPreExisting ? styles.codeUser : ''}`}>{code || ' '}</span>
+        <span className={`${styles.code} ${!row || isPreExisting ? styles.codeUser : ''}`}>
+          {code || ' '}
+        </span>
       </ClickRow>,
     );
   }

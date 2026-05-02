@@ -12,7 +12,6 @@ export interface RevisionsPopoverProps {
   onHover: (editId: string | null) => void;
   onSelect: (editId: string) => void;
   onClose: () => void;
-  compareMode: boolean;
   selectedForCompare: Set<string>;
   onToggleCompare: (editId: string) => void;
   onOpenCompare: () => void;
@@ -52,7 +51,6 @@ export function RevisionsPopover({
   onHover,
   onSelect,
   onClose,
-  compareMode,
   selectedForCompare,
   onToggleCompare,
   onOpenCompare,
@@ -122,16 +120,14 @@ export function RevisionsPopover({
               const isChecked = selectedForCompare.has(e.id);
               return (
                 <div key={e.id} className={styles.rowWrap}>
-                  {compareMode && (
-                    <label className={styles.checkboxWrap} title={t('blame.compareCheckboxLabel')}>
-                      <input
-                        type="checkbox"
-                        className={styles.checkbox}
-                        checked={isChecked}
-                        onChange={() => onToggleCompare(e.id)}
-                      />
-                    </label>
-                  )}
+                  <label className={styles.checkboxWrap} title={t('blame.compareCheckboxLabel')}>
+                    <input
+                      type="checkbox"
+                      className={styles.checkbox}
+                      checked={isChecked}
+                      onChange={() => onToggleCompare(e.id)}
+                    />
+                  </label>
                   <button
                     type="button"
                     className={`${styles.row} ${isActive ? styles.rowActive : ''}`}
@@ -150,7 +146,9 @@ export function RevisionsPopover({
                       {e.id === currentEditId && (
                         <span className={styles.rowCurrent}>{t('blame.revisionCurrent')}</span>
                       )}
-                      <span className={styles.rowHunks}>{t('common.hunks', { n: e.hunk_count })}</span>
+                      <span className={styles.rowHunks}>
+                        {t('common.hunks', { n: e.hunk_count })}
+                      </span>
                     </div>
                     <div className={styles.rowPrompt} title={prompt}>
                       {prompt || t('blame.revisionsNoPrompt')}
@@ -160,19 +158,15 @@ export function RevisionsPopover({
               );
             })}
           </div>
-          {compareMode && selectedForCompare.size === 2 && (
+          {selectedForCompare.size === 2 && (
             <div className={styles.compareFooter}>
-              <button
-                type="button"
-                className={styles.compareBtn}
-                onClick={onOpenCompare}
-              >
+              <button type="button" className={styles.compareBtn} onClick={onOpenCompare}>
                 <GitCompareArrows size={13} />
                 {t('blame.compareSelected', { n: 2 })}
               </button>
             </div>
           )}
-          {compareMode && selectedForCompare.size < 2 && (
+          {selectedForCompare.size < 2 && (
             <div className={styles.compareHint}>{t('blame.compareSelectHint')}</div>
           )}
         </>
