@@ -99,6 +99,7 @@
 | GET | `/api/blame?workspace=&file=` | `{blame, turns, content, edits, chain_broken_edit_ids}` — blame 行带 session_id；edits 是该文件的 edit chain；chain_broken_edit_ids 是 before/after hash 不连续的点 |
 | GET | `/api/ast?workspace=&file=` | `{nodes}` |
 | GET | `/api/revert/plan?turn=&edit=` | revert plan；UI revert 按钮弹 modal 用 |
+| POST | `/api/revert/execute` | 一键回滚执行；body `{kind, id, force?}`；localhost-only；返回 `{written, skipped}` |
 | GET | `/api/search?q=&limit=` | FTS5 跨 session 搜索：`{fts_available, results: [{kind, source_id, session_id, workspace_id, content, snippet}]}` |
 | GET | `/api/blobs/:hash` | blob 原文；UI 不直接用（CLI 写回时 fetch） |
 
@@ -112,7 +113,7 @@
 | `#/ws/.../session/:id` | 25 | ✅ Review + Replay 实现；Overview/Files 已上线 |
 | `#/ws/.../file/*` (Blame) | 24 | ✅ 实现 |
 
-## Revert UI（卡 21）
+## Revert UI（卡 21 + 卡 34）
 
 - Review 页每张 turn 卡片右上角 "Revert this turn" 按钮 → 弹 modal
 - Replay 页每个非空 step 顶部工具栏 "Revert turn" 按钮 → 弹同一个 modal
@@ -120,10 +121,13 @@
   - 文件列表 + kind（restore / delete）
   - later_edits_will_be_lost 黄色警告
   - chain_broken_user_edits 黄色警告
-  - codex_source 红色禁止块 + 命令区隐藏
-- Modal 底部有等宽命令框 `minspect revert --turn <id> --yes` + "copy" 按钮（`navigator.clipboard.writeText`；回退为 selectNodeContents）
-- **UI 不直接写磁盘**；一键执行型 revert 留卡 22（观察期）。
-- 新 UI 的 revert 入口在卡 25 重新接线；`/legacy/` 通道已在卡 32 下线，`minspect revert --turn ... --yes` 是唯一执行路径。
+  - codex_source 红色禁止块 + Apply now 按钮隐藏
+- Modal 底部操作区：
+  - **"Apply now" 主按钮**（accent 色）→ native `confirm()` → `POST /api/revert/execute` → modal 显示 "restored N files, skipped M"（卡 34）
+  - "copy" 按钮复制 `minspect revert --turn <id> --yes` 命令（保留为退路）
+  - Codex 来源时 Apply now 不显示，仅保留 copy（无命令时仅 close）
+- Drift detected（409）时 modal 内显示提示 + "Force apply" 按钮
+- 新 UI 的 revert 入口在卡 25 重新接线；`/legacy/` 通道已在卡 32 下线。
 
 ## Changes
 

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { getJson } from '../../api';
+import { useEffect, useState } from 'react';
+import { getJson, postJson } from '../../api';
 import { useLang } from '../../i18n';
 import styles from './RevertModal.module.css';
 
@@ -33,21 +33,26 @@ interface RevertPlan {
   };
 }
 
+interface ExecuteResult {
+  written: Array<{ file_path: string; action: string }>;
+  skipped: Array<{ file_path: string; reason: string }>;
+}
+
 export interface RevertModalProps {
   target: RevertTarget;
   onClose: () => void;
 }
 
-// Ported from the vanilla legacy UI. Server stays read-only; the modal
-// builds the `minspect revert --turn <id> --yes` command for the user to
-// copy into their terminal. Codex-sourced sessions hide the command (hard
-// block — apply_patch logs don't have enough info to revert safely).
 export function RevertModal({ target, onClose }: RevertModalProps) {
   const { t } = useLang();
   const [plan, setPlan] = useState<RevertPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const cmdRef = useRef<HTMLDivElement>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [forceMode, setForceMode] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [result, setResult] = useState<ExecuteResult | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [driftDetected, setDriftDetected] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -66,32 +71,40 @@ export function RevertModal({ target, onClose }: RevertModalProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (confirming) setConfirming(false);
+        else onClose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, confirming]);
 
-  const cmd = plan?.warnings.codex_source
-    ? ''
-    : `minspect revert --${target.kind} ${target.id} --yes`;
-
-  const handleCopy = async () => {
-    if (!cmd) return;
+  const handleApply = async () => {
+    if (!plan) return;
+    setApplying(true);
+    setApplyError(null);
+    setDriftDetected(false);
     try {
-      await navigator.clipboard.writeText(cmd);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      // Fallback: select the text so user can Ctrl+C.
-      const node = cmdRef.current;
-      if (node) {
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
+      const res = await postJson<ExecuteResult>('/api/revert/execute', {
+        kind: target.kind,
+        id: target.id,
+        force: forceMode,
+      });
+      setResult(res);
+      setForceMode(false);
+      setConfirming(false);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes('drift')) {
+        setDriftDetected(true);
+        setForceMode(true);
+      } else {
+        setApplyError(t('revert.applyError', { msg }));
       }
+      // Stay on confirmation step so user can retry or cancel.
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -99,24 +112,81 @@ export function RevertModal({ target, onClose }: RevertModalProps) {
     <div
       className={styles.backdrop}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          if (confirming) setConfirming(false);
+          else onClose();
+        }
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+        if (e.key === 'Escape') {
+          if (confirming) setConfirming(false);
+          else onClose();
+        }
       }}
       role="presentation"
     >
-      {/* The semantic <dialog> element has show/showModal state — we manage
-         visibility ourselves so stick with a div + ARIA. */}
       {/* biome-ignore lint/a11y/useSemanticElements: custom modal, not native <dialog> */}
       <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="revert-title">
         <h3 id="revert-title" className={styles.h3}>
-          {target.kind === 'turn' ? t('revert.h3.turn') : t('revert.h3.edit')}{' '}
-          <code>{target.id}</code>
+          {confirming ? (
+            t('revert.confirmTitle')
+          ) : (
+            <>
+              {target.kind === 'turn' ? t('revert.h3.turn') : t('revert.h3.edit')}{' '}
+              <code>{target.id}</code>
+            </>
+          )}
         </h3>
         {error && <div className={styles.error}>{t('revert.fetchFailed', { msg: error })}</div>}
         {!plan && !error && <p className={styles.sub}>{t('common.loading')}</p>}
-        {plan && (
+
+        {/* --- Confirmation step --- */}
+        {plan && confirming && (
+          <>
+            <p className={styles.sub}>{t('revert.confirmApply')}</p>
+            <div className={styles.files}>
+              {plan.files.map((f) => (
+                <div key={f.file_path} className={styles.fileRow}>
+                  <span className={styles.kind}>[{f.kind}]</span> {f.file_path}
+                </div>
+              ))}
+            </div>
+            {driftDetected && <div className={styles.warn}>{t('revert.driftDetected')}</div>}
+            {applyError && <div className={styles.error}>{applyError}</div>}
+            <label className={styles.forceRow}>
+              <input
+                type="checkbox"
+                checked={forceMode}
+                onChange={(e) => setForceMode(e.target.checked)}
+              />
+              {t('revert.forceLabel')}
+            </label>
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.btnAccent}
+                onClick={handleApply}
+                disabled={applying}
+              >
+                {applying ? t('revert.applying') : t('revert.confirmBtn')}
+              </button>
+              <button
+                type="button"
+                className={styles.btn}
+                onClick={() => {
+                  setConfirming(false);
+                  setApplyError(null);
+                }}
+                disabled={applying}
+              >
+                {t('revert.cancelBtn')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* --- Plan view (default) --- */}
+        {plan && !confirming && (
           <>
             <p className={styles.sub}>
               {t('revert.source', { name: plan.source_agent ?? t('revert.unknown') })}
@@ -160,28 +230,31 @@ export function RevertModal({ target, onClose }: RevertModalProps) {
                 ))
               )}
             </div>
-            {cmd && (
-              <>
-                <p className={styles.sub} style={{ marginTop: 12 }}>
-                  {t('revert.runInTerminal')}
-                </p>
-                <div className={styles.cmdRow}>
-                  <div className={styles.cmd} ref={cmdRef}>
-                    {cmd}
-                  </div>
-                  <button type="button" className={styles.btn} onClick={handleCopy}>
-                    {copied ? t('revert.copiedBtn') : t('revert.copyBtn')}
-                  </button>
-                </div>
-              </>
+            {result && (
+              <div className={styles.success}>
+                {t('revert.applySuccess', { n: result.written.length, m: result.skipped.length })}
+              </div>
             )}
+            {applyError && <div className={styles.error}>{applyError}</div>}
+            <div className={styles.actions}>
+              {plan && !plan.warnings.codex_source && !result && (
+                <button
+                  type="button"
+                  className={styles.btnAccent}
+                  onClick={() => {
+                    setForceMode(false);
+                    setConfirming(true);
+                  }}
+                >
+                  {t('revert.applyNow')}
+                </button>
+              )}
+              <button type="button" className={styles.btn} onClick={onClose}>
+                {t('revert.closeBtn')}
+              </button>
+            </div>
           </>
         )}
-        <div className={styles.actions}>
-          <button type="button" className={styles.btn} onClick={onClose}>
-            {t('revert.closeBtn')}
-          </button>
-        </div>
       </div>
     </div>
   );

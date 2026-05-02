@@ -1,6 +1,12 @@
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import {
+  type RevertPlan,
+  type RevertResult,
+  applyRevert,
+  checkDrift,
+  sha256,
+} from '@minspect/core';
 import { readCollectorTarget } from '../transport.js';
 
 export interface RevertOptions {
@@ -12,46 +18,14 @@ export interface RevertOptions {
   stateRoot?: string;
 }
 
-interface PlanFile {
-  file_path: string;
-  workspace_id: string;
-  before_hash: string | null;
-  after_hash: string;
-  expected_current_hash: string;
-  kind: 'restore' | 'delete';
-}
-
-interface RevertPlan {
-  target_kind: 'turn' | 'edit';
-  target_id: string;
-  source_agent: string | null;
-  files: PlanFile[];
-  warnings: {
-    codex_source: boolean;
-    chain_broken_user_edits: Array<{ file_path: string; at_edit_id: string }>;
-    later_edits_will_be_lost: Array<{
-      file_path: string;
-      edit_id: string;
-      turn_id: string;
-      turn_idx: number | null;
-    }>;
-  };
-}
-
 interface ErrorResponse {
   error: string;
 }
 
-export interface RevertResult {
+export type RevertCliResult = RevertResult & {
   plan: RevertPlan;
-  written: Array<{ file_path: string; action: 'restored' | 'deleted' }>;
-  skipped: Array<{ file_path: string; reason: string }>;
   mode: 'dry-run' | 'written';
-}
-
-function sha256(s: string): string {
-  return createHash('sha256').update(s).digest('hex');
-}
+};
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -81,7 +55,7 @@ const YELLOW = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const GREEN = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const DIM = (s: string) => `\x1b[2m${s}\x1b[0m`;
 
-export async function runRevert(options: RevertOptions): Promise<RevertResult> {
+export async function runRevert(options: RevertOptions): Promise<RevertCliResult> {
   if ((!options.turn && !options.edit) || (options.turn && options.edit)) {
     throw new Error('specify exactly one of --turn <id> or --edit <id>');
   }
@@ -141,26 +115,11 @@ export async function runRevert(options: RevertOptions): Promise<RevertResult> {
     }
   }
 
-  // Drift detection — compare on-disk content hash to expected_current_hash.
-  const drift: Array<{ file_path: string; expected: string; actual: string }> = [];
-  for (const f of plan.files) {
-    if (!existsSync(f.file_path)) {
-      // File missing on disk: if expected to exist (expected_current_hash not empty-file), flag drift.
-      if (f.expected_current_hash !== sha256('')) {
-        drift.push({
-          file_path: f.file_path,
-          expected: f.expected_current_hash,
-          actual: '<missing>',
-        });
-      }
-      continue;
-    }
-    const cur = readFileSync(f.file_path, 'utf8');
-    const actual = sha256(cur);
-    if (actual !== f.expected_current_hash) {
-      drift.push({ file_path: f.file_path, expected: f.expected_current_hash, actual });
-    }
-  }
+  // Drift detection — uses shared core logic.
+  const drift = checkDrift(plan.files, (path) => {
+    if (!existsSync(path)) return null;
+    return readFileSync(path, 'utf8');
+  });
   if (drift.length > 0) {
     lines.push(
       RED(`  drift: ${drift.length} file(s) have changed since minspect last recorded them`),
@@ -186,49 +145,22 @@ export async function runRevert(options: RevertOptions): Promise<RevertResult> {
     return { plan, written: [], skipped: [], mode: 'dry-run' };
   }
 
-  // Actually apply.
-  const written: Array<{ file_path: string; action: 'restored' | 'deleted' }> = [];
-  const skipped: Array<{ file_path: string; reason: string }> = [];
+  // Actually apply — uses shared core logic.
+  const result = await applyRevert(
+    plan,
+    (hash) => fetchText(`${base}/api/blobs/${hash}`),
+    (path, content) => {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, content, 'utf8');
+    },
+    (path) => rmSync(path, { force: true }),
+  );
 
-  for (const f of plan.files) {
-    if (f.kind === 'delete') {
-      // AI created this file; revert = delete it.
-      try {
-        rmSync(f.file_path, { force: true });
-        written.push({ file_path: f.file_path, action: 'deleted' });
-      } catch (e) {
-        skipped.push({ file_path: f.file_path, reason: (e as Error).message });
-      }
-      continue;
-    }
-    if (!f.before_hash) {
-      skipped.push({ file_path: f.file_path, reason: 'no before_hash recorded' });
-      continue;
-    }
-    let content: string;
-    try {
-      content = await fetchText(`${base}/api/blobs/${f.before_hash}`);
-    } catch (e) {
-      skipped.push({
-        file_path: f.file_path,
-        reason: `blob ${f.before_hash.slice(0, 8)} unavailable: ${(e as Error).message}`,
-      });
-      continue;
-    }
-    try {
-      mkdirSync(dirname(f.file_path), { recursive: true });
-      writeFileSync(f.file_path, content, 'utf8');
-      written.push({ file_path: f.file_path, action: 'restored' });
-    } catch (e) {
-      skipped.push({ file_path: f.file_path, reason: (e as Error).message });
-    }
+  process.stderr.write(`${GREEN(`restored/deleted ${result.written.length} file(s)`)}\n`);
+  if (result.skipped.length > 0) {
+    process.stderr.write(YELLOW(`skipped ${result.skipped.length}:\n`));
+    for (const s of result.skipped) process.stderr.write(`  ${s.file_path}: ${s.reason}\n`);
   }
 
-  process.stderr.write(`${GREEN(`restored/deleted ${written.length} file(s)`)}\n`);
-  if (skipped.length > 0) {
-    process.stderr.write(YELLOW(`skipped ${skipped.length}:\n`));
-    for (const s of skipped) process.stderr.write(`  ${s.file_path}: ${s.reason}\n`);
-  }
-
-  return { plan, written, skipped, mode: 'written' };
+  return { plan, ...result, mode: 'written' };
 }

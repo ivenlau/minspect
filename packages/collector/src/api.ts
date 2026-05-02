@@ -1,5 +1,6 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { type RevertPlan, applyRevert, checkDrift, sha256 } from '@minspect/core';
 import type { FastifyInstance } from 'fastify';
 import { computeBlameAtEdit } from './blame.js';
 import { detectBadgesForTurn } from './detectors.js';
@@ -132,6 +133,150 @@ function rangeConfig(range: DashboardRange, now: number): RangeConfig {
       const out: string[] = [];
       for (let i = 29; i >= 0; i--) out.push(dayKey(new Date(now - i * DAY)));
       return out;
+    },
+  };
+}
+
+interface EditRow {
+  id: string;
+  turn_id: string;
+  session_id: string;
+  workspace_id: string;
+  file_path: string;
+  before_hash: string | null;
+  after_hash: string;
+  created_at: number;
+}
+
+/** Build a revert plan for a turn or edit. Returns null if target not found. */
+function buildRevertPlan(store: Store, turn?: string, edit?: string): RevertPlan | null {
+  let targetEdits: EditRow[];
+  let targetKind: 'turn' | 'edit';
+  let targetId: string;
+  if (turn) {
+    targetKind = 'turn';
+    targetId = turn;
+    targetEdits = store.db
+      .prepare(
+        `SELECT id, turn_id, session_id, workspace_id, file_path, before_hash, after_hash, created_at
+         FROM edits WHERE turn_id = ? ORDER BY created_at`,
+      )
+      .all(turn) as EditRow[];
+  } else {
+    targetKind = 'edit';
+    targetId = edit as string;
+    targetEdits = store.db
+      .prepare(
+        `SELECT id, turn_id, session_id, workspace_id, file_path, before_hash, after_hash, created_at
+         FROM edits WHERE id = ?`,
+      )
+      .all(edit) as EditRow[];
+  }
+  if (targetEdits.length === 0) return null;
+
+  const sessionId = targetEdits[0]?.session_id ?? '';
+  const sess = store.db.prepare('SELECT agent FROM sessions WHERE id = ?').get(sessionId) as
+    | { agent: string }
+    | undefined;
+  const source_agent = sess?.agent ?? null;
+
+  // Collapse per file: earliest before_hash (what to restore TO), latest
+  // after_hash (what AI left it at end of target). kind = delete when AI
+  // created the file in this turn (earliest before_hash is NULL).
+  const byFile = new Map<
+    string,
+    {
+      file_path: string;
+      workspace_id: string;
+      before_hash: string | null;
+      after_hash: string;
+      earliest_created_at: number;
+      latest_created_at: number;
+    }
+  >();
+  for (const e of targetEdits) {
+    const cur = byFile.get(e.file_path);
+    if (!cur) {
+      byFile.set(e.file_path, {
+        file_path: e.file_path,
+        workspace_id: e.workspace_id,
+        before_hash: e.before_hash,
+        after_hash: e.after_hash,
+        earliest_created_at: e.created_at,
+        latest_created_at: e.created_at,
+      });
+    } else {
+      if (e.created_at < cur.earliest_created_at) {
+        cur.earliest_created_at = e.created_at;
+        cur.before_hash = e.before_hash;
+      }
+      if (e.created_at > cur.latest_created_at) {
+        cur.latest_created_at = e.created_at;
+        cur.after_hash = e.after_hash;
+      }
+    }
+  }
+
+  const getLaterEdits = store.db.prepare(
+    `SELECT e.id, e.turn_id, e.before_hash, e.after_hash, e.created_at, t.idx AS turn_idx
+     FROM edits e LEFT JOIN turns t ON t.id = e.turn_id
+     WHERE e.workspace_id = ? AND e.file_path = ? AND e.created_at > ?
+     ORDER BY e.created_at`,
+  );
+  const getExpectedCurrent = store.db.prepare(
+    `SELECT after_hash FROM edits
+     WHERE workspace_id = ? AND file_path = ?
+     ORDER BY created_at DESC LIMIT 1`,
+  );
+
+  const files: RevertPlan['files'] = [];
+  const laterLost: RevertPlan['warnings']['later_edits_will_be_lost'] = [];
+  const chainBroken: RevertPlan['warnings']['chain_broken_user_edits'] = [];
+
+  for (const f of byFile.values()) {
+    const expected = getExpectedCurrent.get(f.workspace_id, f.file_path) as
+      | { after_hash: string }
+      | undefined;
+    const later = getLaterEdits.all(f.workspace_id, f.file_path, f.latest_created_at) as Array<{
+      id: string;
+      turn_id: string;
+      before_hash: string | null;
+      after_hash: string;
+      created_at: number;
+      turn_idx: number | null;
+    }>;
+    let priorAfter = f.after_hash;
+    for (const l of later) {
+      if (l.before_hash !== priorAfter) {
+        chainBroken.push({ file_path: f.file_path, at_edit_id: l.id });
+      }
+      priorAfter = l.after_hash;
+      laterLost.push({
+        file_path: f.file_path,
+        edit_id: l.id,
+        turn_id: l.turn_id,
+        turn_idx: l.turn_idx,
+      });
+    }
+    files.push({
+      file_path: f.file_path,
+      workspace_id: f.workspace_id,
+      before_hash: f.before_hash,
+      after_hash: f.after_hash,
+      expected_current_hash: expected?.after_hash ?? f.after_hash,
+      kind: f.before_hash === null ? 'delete' : 'restore',
+    });
+  }
+
+  return {
+    target_kind: targetKind,
+    target_id: targetId,
+    source_agent,
+    files,
+    warnings: {
+      codex_source: source_agent === 'codex',
+      chain_broken_user_edits: chainBroken,
+      later_edits_will_be_lost: laterLost,
     },
   };
 }
@@ -486,9 +631,9 @@ export function registerApi(app: FastifyInstance, store: Store): void {
 
   app.post('/api/sessions/:id/resume', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const row = store.db
-      .prepare('SELECT agent, workspace_id FROM sessions WHERE id = ?')
-      .get(id) as { agent: string; workspace_id: string } | undefined;
+    const row = store.db.prepare('SELECT agent, workspace_id FROM sessions WHERE id = ?').get(id) as
+      | { agent: string; workspace_id: string }
+      | undefined;
     if (!row) {
       reply.code(404);
       return { error: 'not_found' };
@@ -776,158 +921,70 @@ export function registerApi(app: FastifyInstance, store: Store): void {
       reply.code(400);
       return { error: 'specify_turn_or_edit' };
     }
+    const plan = buildRevertPlan(store, turn, edit);
+    if (!plan) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+    return plan;
+  });
 
-    interface EditRow {
-      id: string;
-      turn_id: string;
-      session_id: string;
-      workspace_id: string;
-      file_path: string;
-      before_hash: string | null;
-      after_hash: string;
-      created_at: number;
+  // One-click revert execute (card 34). Writes files to disk directly.
+  // Guard: only accepts requests from 127.0.0.1.
+  app.post('/api/revert/execute', async (req, reply) => {
+    const ip = req.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.code(403);
+      return { error: 'localhost_only' };
     }
 
-    let targetEdits: EditRow[];
-    let targetKind: 'turn' | 'edit';
-    let targetId: string;
-    if (turn) {
-      targetKind = 'turn';
-      targetId = turn;
-      targetEdits = store.db
-        .prepare(
-          `SELECT id, turn_id, session_id, workspace_id, file_path, before_hash, after_hash, created_at
-           FROM edits WHERE turn_id = ? ORDER BY created_at`,
-        )
-        .all(turn) as EditRow[];
-    } else {
-      targetKind = 'edit';
-      targetId = edit as string;
-      targetEdits = store.db
-        .prepare(
-          `SELECT id, turn_id, session_id, workspace_id, file_path, before_hash, after_hash, created_at
-           FROM edits WHERE id = ?`,
-        )
-        .all(edit) as EditRow[];
+    const body = req.body as { kind?: string; id?: string; force?: boolean } | null;
+    if (!body || !body.kind || !body.id || (body.kind !== 'turn' && body.kind !== 'edit')) {
+      reply.code(400);
+      return { error: 'invalid_payload' };
     }
-    if (targetEdits.length === 0) {
+
+    const plan = buildRevertPlan(
+      store,
+      body.kind === 'turn' ? body.id : undefined,
+      body.kind === 'edit' ? body.id : undefined,
+    );
+    if (!plan) {
       reply.code(404);
       return { error: 'not_found' };
     }
 
-    const sessionId = targetEdits[0]?.session_id ?? '';
-    const sess = store.db.prepare('SELECT agent FROM sessions WHERE id = ?').get(sessionId) as
-      | { agent: string }
-      | undefined;
-    const source_agent = sess?.agent ?? null;
-
-    // Collapse per file: earliest before_hash (what to restore TO), latest
-    // after_hash (what AI left it at end of target). kind = delete when AI
-    // created the file in this turn (earliest before_hash is NULL).
-    const byFile = new Map<
-      string,
-      {
-        file_path: string;
-        workspace_id: string;
-        before_hash: string | null;
-        after_hash: string;
-        earliest_created_at: number;
-        latest_created_at: number;
-      }
-    >();
-    for (const e of targetEdits) {
-      const cur = byFile.get(e.file_path);
-      if (!cur) {
-        byFile.set(e.file_path, {
-          file_path: e.file_path,
-          workspace_id: e.workspace_id,
-          before_hash: e.before_hash,
-          after_hash: e.after_hash,
-          earliest_created_at: e.created_at,
-          latest_created_at: e.created_at,
-        });
-      } else {
-        if (e.created_at < cur.earliest_created_at) {
-          cur.earliest_created_at = e.created_at;
-          cur.before_hash = e.before_hash;
-        }
-        if (e.created_at > cur.latest_created_at) {
-          cur.latest_created_at = e.created_at;
-          cur.after_hash = e.after_hash;
-        }
-      }
+    if (plan.warnings.codex_source) {
+      reply.code(400);
+      return { error: 'codex_source_blocked' };
     }
 
-    const getLaterEdits = store.db.prepare(
-      `SELECT e.id, e.turn_id, e.before_hash, e.after_hash, e.created_at, t.idx AS turn_idx
-       FROM edits e LEFT JOIN turns t ON t.id = e.turn_id
-       WHERE e.workspace_id = ? AND e.file_path = ? AND e.created_at > ?
-       ORDER BY e.created_at`,
-    );
-    const getExpectedCurrent = store.db.prepare(
-      `SELECT after_hash FROM edits
-       WHERE workspace_id = ? AND file_path = ?
-       ORDER BY created_at DESC LIMIT 1`,
-    );
-
-    const files = [];
-    const laterLost: Array<{
-      file_path: string;
-      edit_id: string;
-      turn_id: string;
-      turn_idx: number | null;
-    }> = [];
-    const chainBroken: Array<{ file_path: string; at_edit_id: string }> = [];
-
-    for (const f of byFile.values()) {
-      const expected = getExpectedCurrent.get(f.workspace_id, f.file_path) as
-        | { after_hash: string }
-        | undefined;
-      const later = getLaterEdits.all(f.workspace_id, f.file_path, f.latest_created_at) as Array<{
-        id: string;
-        turn_id: string;
-        before_hash: string | null;
-        after_hash: string;
-        created_at: number;
-        turn_idx: number | null;
-      }>;
-      // Detect chain breaks in the later edits: if any later edit's
-      // before_hash doesn't match the prior edit's after_hash, a user edit
-      // happened in between.
-      let priorAfter = f.after_hash;
-      for (const l of later) {
-        if (l.before_hash !== priorAfter) {
-          chainBroken.push({ file_path: f.file_path, at_edit_id: l.id });
-        }
-        priorAfter = l.after_hash;
-        laterLost.push({
-          file_path: f.file_path,
-          edit_id: l.id,
-          turn_id: l.turn_id,
-          turn_idx: l.turn_idx,
-        });
-      }
-      files.push({
-        file_path: f.file_path,
-        workspace_id: f.workspace_id,
-        before_hash: f.before_hash,
-        after_hash: f.after_hash,
-        expected_current_hash: expected?.after_hash ?? f.after_hash,
-        kind: f.before_hash === null ? 'delete' : 'restore',
-      });
+    const drift = checkDrift(plan.files, (path) => {
+      if (!existsSync(path)) return null;
+      return readFileSync(path, 'utf8');
+    });
+    if (drift.length > 0 && !body.force) {
+      reply.code(409);
+      return { error: 'drift_detected', drift };
     }
 
-    return {
-      target_kind: targetKind,
-      target_id: targetId,
-      source_agent,
-      files,
-      warnings: {
-        codex_source: source_agent === 'codex',
-        chain_broken_user_edits: chainBroken,
-        later_edits_will_be_lost: laterLost,
+    const result = await applyRevert(
+      plan,
+      async (hash) => {
+        const row = store.db.prepare('SELECT content FROM blobs WHERE hash = ?').get(hash) as
+          | { content: Buffer }
+          | undefined;
+        if (!row) throw new Error(`blob ${hash.slice(0, 8)} not found`);
+        return row.content.toString('utf8');
       },
-    };
+      (path, content) => {
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, content, 'utf8');
+      },
+      (path) => rmSync(path, { force: true }),
+    );
+
+    return { written: result.written, skipped: result.skipped };
   });
 
   // UI "refresh/sync" button target. Fires three subcommands in the

@@ -483,7 +483,6 @@ export const STRINGS = tbl({
   },
 
   // --- compare revisions -------------------------------------------------
-  'blame.compareMode': { en: 'Compare mode', zh: '对比模式' },
   'blame.compareSelected': {
     en: ({ n }: VarBag) => `Compare selected (${n})`,
     zh: ({ n }: VarBag) => `对比选中版本 (${n})`,
@@ -492,8 +491,17 @@ export const STRINGS = tbl({
   'blame.compareLeft': { en: 'Earlier', zh: '较早版本' },
   'blame.compareRight': { en: 'Later', zh: '较新版本' },
   'blame.compareSelectHint': { en: 'Select 2 revisions to compare', zh: '请选择 2 个版本进行对比' },
-  'blame.compareNoContent': { en: 'Content unavailable (blob may have been vacuumed)', zh: '内容不可用（blob 可能已被清理）' },
+  'blame.compareNoContent': {
+    en: 'Content unavailable (blob may have been vacuumed)',
+    zh: '内容不可用（blob 可能已被清理）',
+  },
   'blame.compareCheckboxLabel': { en: 'Select for compare', zh: '选择对比' },
+  'blame.diffNavPrev': { en: 'Previous change (Shift+↑)', zh: '上一个变更 (Shift+↑)' },
+  'blame.diffNavNext': { en: 'Next change (Shift+↓)', zh: '下一个变更 (Shift+↓)' },
+  'blame.diffNavCounter': {
+    en: ({ i, total }: VarBag) => `${i} / ${total}`,
+    zh: ({ i, total }: VarBag) => `${i} / ${total}`,
+  },
 
   // --- command palette --------------------------------------------------
   'palette.placeholder': {
@@ -559,13 +567,29 @@ export const STRINGS = tbl({
     zh: '位于目标与当前磁盘状态之间 — 这些会被覆盖：',
   },
   'revert.noFiles': { en: '(no files)', zh: '（无文件）' },
-  'revert.runInTerminal': {
-    en: 'To apply, run this in your terminal:',
-    zh: '要应用，请在终端执行：',
-  },
-  'revert.copyBtn': { en: 'copy', zh: '复制' },
-  'revert.copiedBtn': { en: 'copied', zh: '已复制' },
   'revert.closeBtn': { en: 'close', zh: '关闭' },
+  'revert.applyNow': { en: 'Apply now', zh: '立即执行' },
+  'revert.confirmTitle': { en: 'Confirm revert', zh: '确认回滚' },
+  'revert.confirmApply': {
+    en: 'This will revert the following files. This cannot be undone.',
+    zh: '将回滚以下文件，此操作不可撤销。',
+  },
+  'revert.confirmBtn': { en: 'Confirm revert', zh: '确认回滚' },
+  'revert.cancelBtn': { en: 'Cancel', zh: '取消' },
+  'revert.applying': { en: 'Applying…', zh: '执行中…' },
+  'revert.applySuccess': {
+    en: 'Restored {n} file(s), skipped {m}',
+    zh: '已恢复 {n} 个文件，跳过 {m} 个',
+  },
+  'revert.applyError': { en: 'Revert failed: {msg}', zh: '回滚失败：{msg}' },
+  'revert.driftDetected': {
+    en: 'Files changed since recorded. Force apply?',
+    zh: '文件自记录后已变更。是否强制执行？',
+  },
+  'revert.forceLabel': {
+    en: 'Force — overwrite files that changed since recorded',
+    zh: '强制 — 覆盖自记录后已变更的文件',
+  },
 
   // --- app fallback routes ---------------------------------------------
   'app.legacyTitle': { en: 'Legacy link', zh: '旧链接' },

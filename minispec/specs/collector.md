@@ -38,7 +38,15 @@
 - `GET /api/revert/plan?turn=<id>` 或 `?edit=<id>`（二选一）→ 200 `{target_kind, target_id, source_agent, files: [{file_path, workspace_id, before_hash, after_hash, expected_current_hash, kind: 'restore' | 'delete'}], warnings: {codex_source, chain_broken_user_edits, later_edits_will_be_lost}}`
   - 400 `{error: 'specify_turn_or_edit'}` — 缺 / 都传
   - 404 `{error: 'not_found'}`
-  - 用途：`minspect revert` CLI + UI revert 按钮 modal 的数据源。Server **只读**（不执行写回），写磁盘由 CLI 完成。
+  - 用途：`minspect revert` CLI + UI revert 按钮 modal 的数据源。
+- `POST /api/revert/execute` → 200 `{written: [{file_path, action}], skipped: [{file_path, reason}]}`
+  - Body: `{kind: 'turn'|'edit', id: string, force?: boolean}`
+  - 400 `{error: 'invalid_payload'}` — 缺参数或 kind 非法
+  - 400 `{error: 'codex_source_blocked'}` — Codex 导入的 session 不可 revert
+  - 403 `{error: 'localhost_only'}` — 非 127.0.0.1 来源
+  - 404 `{error: 'not_found'}`
+  - 409 `{error: 'drift_detected', drift: [...]}` — 文件已变更，需 `force: true`
+  - 用途：UI "Apply now" 一键回滚。Server 直接写磁盘（复用 `@minspect/core` 的 `checkDrift` + `applyRevert`）。
 - `POST /api/sessions/:id/resume` → 200 `{ok: true, command: "..."}`
   - 400 `{error: 'unsupported_agent'}` — agent 不支持 resume（仅 claude-code 支持）
   - 404 `{error: 'not_found'}`
