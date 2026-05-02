@@ -76,11 +76,12 @@ export async function runCapture(options: CaptureOptions = {}): Promise<Event[]>
   switch (payload.hook_event_name) {
     case 'SessionStart': {
       events.push(...parse(payload, { timestamp: now, git }));
-      // Reset state on SessionStart (resume/startup both valid reset points).
+      // Keep existing turn_idx when resuming a session so new turns don't
+      // conflict with already-ingested ones via UNIQUE(session_id, idx).
       writeSessionState(
         {
           session_id: payload.session_id,
-          turn_idx: 0,
+          turn_idx: state.turn_idx,
           current_turn_id: null,
           current_turn_started_at: null,
           tool_call_idx: 0,

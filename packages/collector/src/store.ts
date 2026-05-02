@@ -236,7 +236,7 @@ export class Store {
       .prepare(
         `INSERT INTO turns (id, session_id, idx, user_prompt, agent_reasoning, agent_final_message, started_at, ended_at, git_head)
          VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL, ?)
-         ON CONFLICT(id) DO NOTHING`,
+         ON CONFLICT DO NOTHING`,
       )
       .run(e.turn_id, e.session_id, e.idx, e.user_prompt, e.timestamp, e.git.head);
     if (res.changes > 0 && e.user_prompt) {

@@ -55,7 +55,7 @@ describe('applyMigrations', () => {
 describe('INITIAL_SCHEMA_SQL', () => {
   it('matches schema.sql byte-for-byte (prevents drift)', () => {
     const schemaPath = resolve(dirname(fileURLToPath(import.meta.url)), 'schema.sql');
-    const fromFile = readFileSync(schemaPath, 'utf8');
+    const fromFile = readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
     expect(INITIAL_SCHEMA_SQL).toBe(fromFile);
   });
 });
