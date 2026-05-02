@@ -197,6 +197,26 @@ pnpm format     # biome format --write .
 
 注：biome 的 `format` 不会整理 import 顺序。新增或移动 import 后请跑 `pnpm exec biome check --write .`。
 
+## 发布
+
+通过 GitHub Actions 自动发布。推送 `v` 前缀 tag 即可触发：
+
+```bash
+# 1. 改版本号
+npm version 0.2.0 --no-git-tag-version
+
+# 2. 提交 + 打 tag
+git add -A && git commit -m "release: v0.2.0"
+git tag v0.2.0
+
+# 3. 推送 — CI 自动完成：build → bundle → test → npm publish → GitHub Release
+git push && git push --tags
+```
+
+workflow（`.github/workflows/publish.yml`）会校验 tag 版本与 `packages/cli/package.json` 一致后才发布。不一致则 CI fail。
+
+**前置条件**：需在 repo 的 GitHub Actions settings（Settings → Secrets → Actions）中配置 `NPM_TOKEN` secret。
+
 ## 数据与隐私
 
 - SQLite 文件：`<state_dir>/history.sqlite`（WAL 模式）

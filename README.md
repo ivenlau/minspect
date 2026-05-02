@@ -203,6 +203,26 @@ pnpm format     # biome format --write .
 
 Note: biome's `format` command does not reorganize imports. When adding/moving imports, run `pnpm exec biome check --write .` instead.
 
+## Releasing
+
+Publishing is automated via GitHub Actions. Push a `v`-prefixed tag and CI handles the rest:
+
+```bash
+# 1. Bump version in packages/cli/package.json
+npm version 0.2.0 --no-git-tag-version
+
+# 2. Commit and tag
+git add -A && git commit -m "release: v0.2.0"
+git tag v0.2.0
+
+# 3. Push — CI takes over: build → bundle → test → npm publish → GitHub Release
+git push && git push --tags
+```
+
+The workflow (`.github/workflows/publish.yml`) validates that the tag version matches `packages/cli/package.json` before publishing. If they don't match, CI fails.
+
+**Prerequisite**: the `NPM_TOKEN` secret must be configured in the repo's GitHub Actions settings (Settings → Secrets → Actions).
+
 ## Data and privacy
 
 - SQLite file: `<state_dir>/history.sqlite` (WAL mode)
