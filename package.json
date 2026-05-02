@@ -1,6 +1,6 @@
 {
   "name": "minspect",
-  "version": "0.0.0",
+  "version": "0.1.5",
   "private": true,
   "description": "Record what AI coding agents change, why, and how — across sessions, turns, files, methods, and lines.",
   "packageManager": "pnpm@10.32.1",
