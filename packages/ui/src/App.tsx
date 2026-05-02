@@ -45,7 +45,13 @@ export function App() {
 
   return (
     <Shell
-      topBar={<TopBar {...topBarPropsFor(route, t)} connected={connected} onSearch={() => setPaletteOpen(true)} />}
+      topBar={
+        <TopBar
+          {...topBarPropsFor(route, t)}
+          connected={connected}
+          onSearch={() => setPaletteOpen(true)}
+        />
+      }
       statusBar={<StatusBar leftSlot={<StatusBarLeft route={route} />} />}
     >
       <ThreePane sidebar={sidebarFor(route)} inspector={inspectorFor(route)}>

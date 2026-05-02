@@ -60,13 +60,9 @@ export function ConfirmDeleteWorkspaceModal({
         <h3 id="delete-title" className={styles.h3}>
           {t('workspace.deleteConfirmTitle')}
         </h3>
-        <p className={styles.message}>
-          {t('workspace.deleteConfirmMessage', { name })}
-        </p>
+        <p className={styles.message}>{t('workspace.deleteConfirmMessage', { name })}</p>
         <div className={styles.warn}>{t('workspace.deleteConfirmWarning')}</div>
-        {error && (
-          <div className={styles.error}>{t('workspace.deleteFailed', { msg: error })}</div>
-        )}
+        {error && <div className={styles.error}>{t('workspace.deleteFailed', { msg: error })}</div>}
         <div className={styles.actions}>
           <button type="button" className={styles.btn} onClick={onClose} disabled={deleting}>
             {t('common.cancel')}

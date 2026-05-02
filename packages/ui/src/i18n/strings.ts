@@ -301,8 +301,7 @@ export const STRINGS = tbl({
   'workspace.deleteConfirmMessage': {
     en: ({ name }: VarBag) =>
       `This will permanently remove all sessions, edits, and blame data for workspace "${name}".`,
-    zh: ({ name }: VarBag) =>
-      `将永久删除工作区 "${name}" 的所有会话、编辑和 blame 数据。`,
+    zh: ({ name }: VarBag) => `将永久删除工作区 "${name}" 的所有会话、编辑和 blame 数据。`,
   },
   'workspace.deleteConfirmWarning': {
     en: 'This action cannot be undone. Files on disk are not affected.',

@@ -5,10 +5,10 @@ import { Card } from '../components/Card';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
 import { LiveDot } from '../components/Skeleton';
+import { ConfirmDeleteWorkspaceModal } from '../features/workspaces/ConfirmDeleteWorkspaceModal';
 import { useLang } from '../i18n';
 import { Inspector } from '../layout/Inspector';
 import { hrefFor, navigate } from '../router';
-import { ConfirmDeleteWorkspaceModal } from '../features/workspaces/ConfirmDeleteWorkspaceModal';
 import styles from './WorkspacePage.module.css';
 
 export interface WorkspaceDetail {

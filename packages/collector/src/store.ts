@@ -49,25 +49,33 @@ export class Store {
 
       // Delete in dependency order (child tables first).
       // tool_calls (via turns)
-      this.db.prepare(
-        `DELETE FROM tool_calls WHERE turn_id IN (SELECT id FROM turns WHERE session_id = ?)`,
-      ).run(sessionId);
+      this.db
+        .prepare(
+          `DELETE FROM tool_calls WHERE turn_id IN (SELECT id FROM turns WHERE session_id = ?)`,
+        )
+        .run(sessionId);
       // hunks (via edits)
-      this.db.prepare(
-        `DELETE FROM hunks WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
-      ).run(sessionId);
+      this.db
+        .prepare(`DELETE FROM hunks WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`)
+        .run(sessionId);
       // line_blame (via edits)
-      this.db.prepare(
-        `DELETE FROM line_blame WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
-      ).run(sessionId);
+      this.db
+        .prepare(
+          `DELETE FROM line_blame WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+        )
+        .run(sessionId);
       // commit_links (via edits)
-      this.db.prepare(
-        `DELETE FROM commit_links WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
-      ).run(sessionId);
+      this.db
+        .prepare(
+          `DELETE FROM commit_links WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+        )
+        .run(sessionId);
       // edit_ast_impact (via edits)
-      this.db.prepare(
-        `DELETE FROM edit_ast_impact WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
-      ).run(sessionId);
+      this.db
+        .prepare(
+          `DELETE FROM edit_ast_impact WHERE edit_id IN (SELECT id FROM edits WHERE session_id = ?)`,
+        )
+        .run(sessionId);
       // search_index (direct session_id)
       if (this.ftsEnabled) {
         this.db.prepare('DELETE FROM search_index WHERE session_id = ?').run(sessionId);
@@ -396,9 +404,16 @@ export class Store {
     // wrote this call. COALESCE makes turn_end writes idempotent — FTS should
     // only index the *first* non-null value to avoid duplicate rows.
     const before = this.db
-      .prepare('SELECT session_id, user_prompt, agent_reasoning, agent_final_message FROM turns WHERE id = ?')
+      .prepare(
+        'SELECT session_id, user_prompt, agent_reasoning, agent_final_message FROM turns WHERE id = ?',
+      )
       .get(e.turn_id) as
-      | { session_id: string; user_prompt: string; agent_reasoning: string | null; agent_final_message: string | null }
+      | {
+          session_id: string;
+          user_prompt: string;
+          agent_reasoning: string | null;
+          agent_final_message: string | null;
+        }
       | undefined;
     this.db
       .prepare(
@@ -409,7 +424,14 @@ export class Store {
              user_prompt = CASE WHEN user_prompt = '' AND ? != '' THEN ? ELSE user_prompt END
          WHERE id = ?`,
       )
-      .run(e.timestamp, e.agent_reasoning ?? null, e.agent_final_message ?? null, e.user_prompt ?? '', e.user_prompt ?? '', e.turn_id);
+      .run(
+        e.timestamp,
+        e.agent_reasoning ?? null,
+        e.agent_final_message ?? null,
+        e.user_prompt ?? '',
+        e.user_prompt ?? '',
+        e.turn_id,
+      );
     if (before) {
       const wsid = this.workspaceIdFor(before.session_id);
       if (wsid) {

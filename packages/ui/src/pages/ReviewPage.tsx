@@ -376,14 +376,22 @@ body { margin: 0; background: ${v('--bg-0')}; color: ${v('--text-0')}; font-fami
 `;
 
   // Build hunk HTML
-  const renderHunk = (h: { old_text: string | null; new_text: string | null; new_start: number; new_count: number; old_start?: number | null; old_count?: number | null }): string => {
+  const renderHunk = (h: {
+    old_text: string | null;
+    new_text: string | null;
+    new_start: number;
+    new_count: number;
+    old_start?: number | null;
+    old_count?: number | null;
+  }): string => {
     const dels = splitLines(h.old_text);
     const adds = splitLines(h.new_text);
     const osStart = h.old_start ?? null;
     const osCount = h.old_count ?? 0;
-    const headTxt = osStart == null
-      ? `@@ new file · +${h.new_count} @@`
-      : `@@ -${osStart},${osCount} +${h.new_start},${h.new_count} @@`;
+    const headTxt =
+      osStart == null
+        ? `@@ new file · +${h.new_count} @@`
+        : `@@ -${osStart},${osCount} +${h.new_start},${h.new_count} @@`;
 
     let rows = '';
     for (let i = 0; i < dels.length; i++) {
@@ -400,7 +408,8 @@ body { margin: 0; background: ${v('--bg-0')}; color: ${v('--text-0')}; font-fami
     .map((t) => {
       const top = topBadge(t);
       const isDanger = top?.level === 'danger';
-      const explanation = t.edits.find((e) => e.tool_call_explanation)?.tool_call_explanation ?? null;
+      const explanation =
+        t.edits.find((e) => e.tool_call_explanation)?.tool_call_explanation ?? null;
       const dur = t.ended_at ? `${((t.ended_at - t.started_at) / 1000).toFixed(1)}s` : '—';
       const time = new Date(t.started_at).toLocaleTimeString();
 
@@ -419,14 +428,17 @@ body { margin: 0; background: ${v('--bg-0')}; color: ${v('--text-0')}; font-fami
         : '';
 
       // Final message for empty turns
-      const finalHtml = t.edits.length === 0 && t.agent_final_message
-        ? `<div class="cardExp"><span class="cardExpL">AGENT FINAL MESSAGE</span><span class="cardExpT">${esc(t.agent_final_message)}</span></div>`
-        : '';
+      const finalHtml =
+        t.edits.length === 0 && t.agent_final_message
+          ? `<div class="cardExp"><span class="cardExpL">AGENT FINAL MESSAGE</span><span class="cardExpT">${esc(t.agent_final_message)}</span></div>`
+          : '';
 
       // Edits
       const editsHtml = t.edits
         .map((e) => {
-          const toolTag = e.tool_name ? `<span class="cardEditTool">${esc(e.tool_name)}</span>` : '';
+          const toolTag = e.tool_name
+            ? `<span class="cardEditTool">${esc(e.tool_name)}</span>`
+            : '';
           const hunksHtml = e.hunks.map(renderHunk).join('\n<div style="margin-top:6px"></div>');
           return `<div><div class="cardEditHdr"><span class="cardEditIcon">&#128196;</span><span class="cardEditFile">${esc(e.file_path)}</span>${toolTag}</div><div style="margin-top:6px">${hunksHtml}</div></div>`;
         })

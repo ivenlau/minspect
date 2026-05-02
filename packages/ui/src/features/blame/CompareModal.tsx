@@ -169,7 +169,10 @@ export function CompareModal({ editLeft, editRight, turns, file, onClose }: Comp
     const onRight = () => sync(right, left);
     left.addEventListener('scroll', onLeft, { passive: true });
     right.addEventListener('scroll', onRight, { passive: true });
-    return () => { left.removeEventListener('scroll', onLeft); right.removeEventListener('scroll', onRight); };
+    return () => {
+      left.removeEventListener('scroll', onLeft);
+      right.removeEventListener('scroll', onRight);
+    };
   }, []);
 
   // Scroll active hunk into view in both panes
@@ -178,7 +181,9 @@ export function CompareModal({ editLeft, editRight, turns, file, onClose }: Comp
     const [start] = hunkGroups[activeHunk];
     const leftEl = document.querySelector<HTMLElement>(`[data-hunk-target="${start}"]`);
     if (leftEl) leftEl.scrollIntoView({ block: 'center' });
-    const rightEl = rightPaneRef.current?.querySelector<HTMLElement>(`[data-hunk-target="${start}"]`);
+    const rightEl = rightPaneRef.current?.querySelector<HTMLElement>(
+      `[data-hunk-target="${start}"]`,
+    );
     if (rightEl) rightEl.scrollIntoView({ block: 'center' });
   }, [activeHunk, hunkGroups, hunkCount]);
 

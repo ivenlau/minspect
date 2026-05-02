@@ -638,18 +638,21 @@ describe('parseOpenCodeEnvelope', () => {
     // Actually — the `out` array from idle is already returned. We need to
     // test the state-level buffering instead.
     // The late text part matches u1 which is still current_turn_id.
-    const late = ingest({
-      type: 'message.part.updated',
-      properties: {
-        part: {
-          id: 'p-late',
-          sessionID: 's1',
-          messageID: 'u1',
-          type: 'text',
-          text: 'actual user prompt',
+    const late = ingest(
+      {
+        type: 'message.part.updated',
+        properties: {
+          part: {
+            id: 'p-late',
+            sessionID: 's1',
+            messageID: 'u1',
+            type: 'text',
+            text: 'actual user prompt',
+          },
         },
       },
-    }, 1150);
+      1150,
+    );
     // No events emitted — text is buffered for next turn_start.
     expect(late).toHaveLength(0);
     expect(state.pending_user_text).toBe('actual user prompt');
@@ -734,43 +737,49 @@ describe('parseOpenCodeEnvelope', () => {
     });
 
     // Tool arrives BEFORE user TextPart → flushes turn_start with empty prompt
-    const toolOut = ingest({
-      type: 'message.part.updated',
-      properties: {
-        part: {
-          id: 'p1',
-          sessionID: 's1',
-          messageID: 'a1',
-          type: 'tool',
-          callID: 'c1',
-          tool: 'write',
-          state: {
-            status: 'completed',
-            input: { file_path: 'a.txt', content: 'hi' },
-            output: 'done',
-            title: 'write a.txt',
-            metadata: {},
-            time: { start: 1100, end: 1150 },
+    const toolOut = ingest(
+      {
+        type: 'message.part.updated',
+        properties: {
+          part: {
+            id: 'p1',
+            sessionID: 's1',
+            messageID: 'a1',
+            type: 'tool',
+            callID: 'c1',
+            tool: 'write',
+            state: {
+              status: 'completed',
+              input: { file_path: 'a.txt', content: 'hi' },
+              output: 'done',
+              title: 'write a.txt',
+              metadata: {},
+              time: { start: 1100, end: 1150 },
+            },
           },
         },
       },
-    }, 1150);
+      1150,
+    );
     expect(toolOut[0]?.type).toBe('turn_start');
     expect((toolOut[0] as { user_prompt?: string }).user_prompt).toBe('');
 
     // User TextPart arrives late → buffered as pending_user_text
-    ingest({
-      type: 'message.part.updated',
-      properties: {
-        part: {
-          id: 'p-late',
-          sessionID: 's1',
-          messageID: 'u1',
-          type: 'text',
-          text: 'please write a file',
+    ingest(
+      {
+        type: 'message.part.updated',
+        properties: {
+          part: {
+            id: 'p-late',
+            sessionID: 's1',
+            messageID: 'u1',
+            type: 'text',
+            text: 'please write a file',
+          },
         },
       },
-    }, 1200);
+      1200,
+    );
     expect(state.pending_user_text).toBe('please write a file');
 
     // session.idle → turn_end should carry the user_prompt
@@ -797,31 +806,54 @@ describe('parseOpenCodeEnvelope', () => {
       type: 'message.updated',
       properties: { info: { id: 'u1', sessionID: 's1', role: 'user', time: { created: 1000 } } },
     });
-    ingest({
-      type: 'message.part.updated',
-      properties: { part: { id: 'p1', sessionID: 's1', messageID: 'u1', type: 'text', text: 'first prompt' } },
-    }, 1050);
+    ingest(
+      {
+        type: 'message.part.updated',
+        properties: {
+          part: { id: 'p1', sessionID: 's1', messageID: 'u1', type: 'text', text: 'first prompt' },
+        },
+      },
+      1050,
+    );
     // Flush turn
-    ingest({
-      type: 'message.updated',
-      properties: { info: { id: 'a1', sessionID: 's1', role: 'assistant', time: { created: 1100, completed: 1200 } } },
-    }, 1200);
+    ingest(
+      {
+        type: 'message.updated',
+        properties: {
+          info: {
+            id: 'a1',
+            sessionID: 's1',
+            role: 'assistant',
+            time: { created: 1100, completed: 1200 },
+          },
+        },
+      },
+      1200,
+    );
     ingest({ type: 'session.idle', properties: { sessionID: 's1' } }, 1300);
 
     // Second turn: TextPart arrives BEFORE message.updated
-    const earlyText = ingest({
-      type: 'message.part.updated',
-      properties: { part: { id: 'p2', sessionID: 's1', messageID: 'u2', type: 'text', text: 'early prompt' } },
-    }, 2000);
+    const earlyText = ingest(
+      {
+        type: 'message.part.updated',
+        properties: {
+          part: { id: 'p2', sessionID: 's1', messageID: 'u2', type: 'text', text: 'early prompt' },
+        },
+      },
+      2000,
+    );
     // TextPart should be cached, no turn_start emitted yet
     expect(earlyText).toHaveLength(0);
     expect(state.pending_text_by_message['u2']).toBe('early prompt');
 
     // Now message.updated arrives — should flush immediately with the cached text
-    const mu = ingest({
-      type: 'message.updated',
-      properties: { info: { id: 'u2', sessionID: 's1', role: 'user', time: { created: 2100 } } },
-    }, 2100);
+    const mu = ingest(
+      {
+        type: 'message.updated',
+        properties: { info: { id: 'u2', sessionID: 's1', role: 'user', time: { created: 2100 } } },
+      },
+      2100,
+    );
     expect(mu).toHaveLength(1);
     expect(mu[0]?.type).toBe('turn_start');
     expect((mu[0] as { user_prompt?: string }).user_prompt).toBe('early prompt');

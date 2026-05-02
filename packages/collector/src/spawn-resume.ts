@@ -6,8 +6,8 @@ import { platform } from 'node:process';
 
 const AGENT_COMMANDS: Record<string, (sessionId: string) => string> = {
   'claude-code': (id) => `claude --resume ${id}`,
-  'codex': (id) => `codex resume ${id}`,
-  'opencode': (id) => `opencode --session ${id}`,
+  codex: (id) => `codex resume ${id}`,
+  opencode: (id) => `opencode --session ${id}`,
 };
 
 export interface SpawnResumeResult {
@@ -32,7 +32,11 @@ function fireAndForget(cmd: string, args: string[], env?: Record<string, string>
   }
 }
 
-export function spawnResume(agent: string, sessionId: string, workspacePath: string): SpawnResumeResult {
+export function spawnResume(
+  agent: string,
+  sessionId: string,
+  workspacePath: string,
+): SpawnResumeResult {
   const buildCmd = AGENT_COMMANDS[agent];
   if (!buildCmd) {
     return { ok: false, command: '', error: `unsupported_agent: ${agent}` };
@@ -53,11 +57,10 @@ export function spawnResume(agent: string, sessionId: string, workspacePath: str
 
 function findGitBashFromRegistry(): string | null {
   for (const root of ['HKLM', 'HKCU']) {
-    const r = spawnSync(
-      'reg',
-      ['query', `${root}\\SOFTWARE\\GitForWindows`, '/v', 'InstallPath'],
-      { stdio: 'pipe', timeout: 3000 },
-    );
+    const r = spawnSync('reg', ['query', `${root}\\SOFTWARE\\GitForWindows`, '/v', 'InstallPath'], {
+      stdio: 'pipe',
+      timeout: 3000,
+    });
     if (r.status !== 0) continue;
     const out = r.stdout?.toString() ?? '';
     const m = /InstallPath\s+REG_SZ\s+(.+)/i.exec(out);
@@ -88,12 +91,22 @@ function spawnWindows(agentCmd: string, cwd: string): SpawnResumeResult {
     writeFileSync(batPath, batContent, 'utf8');
     if (fireAndForget('cmd', ['/c', 'start', 'minspect resume', 'cmd', '/k', batPath], extraEnv)) {
       setTimeout(() => {
-        try { unlinkSync(batPath); } catch { /* ignore */ }
-        try { rmdirSync(dir); } catch { /* ignore */ }
+        try {
+          unlinkSync(batPath);
+        } catch {
+          /* ignore */
+        }
+        try {
+          rmdirSync(dir);
+        } catch {
+          /* ignore */
+        }
       }, 5000);
       return { ok: true, command: `cmd /k ${batPath}` };
     }
-  } catch { /* fallback below */ }
+  } catch {
+    /* fallback below */
+  }
 
   const cmdK = `cd /d "${cwd}" && ${agentCmd}`;
   if (fireAndForget('cmd', ['/c', 'start', 'minspect resume', 'cmd', '/k', cmdK], extraEnv)) {
@@ -140,10 +153,10 @@ const TERMINALS: TerminalDef[] = [
   // x-terminal-emulator (Debian abstraction) — delegates to the system default.
   { name: 'x-terminal-emulator', buildArgs: (s) => ['-e', 'sh', '-c', s] },
   // xterm / konsole / alacritty / kitty — all use "-e cmd args..."
-  { name: 'xterm',     buildArgs: (s) => ['-e', 'sh', '-c', s] },
-  { name: 'konsole',   buildArgs: (s) => ['-e', 'sh', '-c', s] },
+  { name: 'xterm', buildArgs: (s) => ['-e', 'sh', '-c', s] },
+  { name: 'konsole', buildArgs: (s) => ['-e', 'sh', '-c', s] },
   { name: 'alacritty', buildArgs: (s) => ['-e', 'sh', '-c', s] },
-  { name: 'kitty',     buildArgs: (s) => ['-e', 'sh', '-c', s] },
+  { name: 'kitty', buildArgs: (s) => ['-e', 'sh', '-c', s] },
   // gnome-terminal deprecated -e in favour of -- .
   { name: 'gnome-terminal', buildArgs: (s) => ['--', 'sh', '-c', s] },
 ];
@@ -160,7 +173,12 @@ function findTerminal(): TerminalDef | null {
 function spawnLinux(agentCmd: string, cwd: string): SpawnResumeResult {
   const term = findTerminal();
   if (!term) {
-    return { ok: false, command: agentCmd, error: 'no terminal emulator found (install xterm, gnome-terminal, konsole, alacritty, or kitty)' };
+    return {
+      ok: false,
+      command: agentCmd,
+      error:
+        'no terminal emulator found (install xterm, gnome-terminal, konsole, alacritty, or kitty)',
+    };
   }
 
   // Build the shell command once — no double-escaping.

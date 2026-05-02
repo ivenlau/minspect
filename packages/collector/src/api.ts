@@ -164,9 +164,9 @@ function buildRevertPlan(store: Store, turn?: string, edit?: string): RevertPlan
       .all(turn) as EditRow[];
     // Turn exists but has no edits (pure text conversation) — return empty plan.
     if (targetEdits.length === 0) {
-      const turnRow = store.db
-        .prepare('SELECT session_id FROM turns WHERE id = ?')
-        .get(turn) as { session_id: string } | undefined;
+      const turnRow = store.db.prepare('SELECT session_id FROM turns WHERE id = ?').get(turn) as
+        | { session_id: string }
+        | undefined;
       if (!turnRow) return null;
       const sess = store.db
         .prepare('SELECT agent FROM sessions WHERE id = ?')

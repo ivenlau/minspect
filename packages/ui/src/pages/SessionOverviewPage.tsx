@@ -69,7 +69,9 @@ export function SessionOverviewPage({ workspace, session }: SessionOverviewPageP
     setResumeState('idle');
     setResumeError(null);
     try {
-      const r = await postJson<{ ok: boolean; command: string }>(`/api/sessions/${encodeURIComponent(session)}/resume`);
+      const r = await postJson<{ ok: boolean; command: string }>(
+        `/api/sessions/${encodeURIComponent(session)}/resume`,
+      );
       if (r.ok) {
         setResumeState('ok');
         if (resumeTimer.current) clearTimeout(resumeTimer.current);
@@ -145,7 +147,9 @@ export function SessionOverviewPage({ workspace, session }: SessionOverviewPageP
           <span>{t('sessionOverview.duration', { label: dur })}</span>
         </div>
         {resumeError && (
-          <span className={styles.resumeError}>{t('sessionOverview.resumeFailed', { msg: resumeError })}</span>
+          <span className={styles.resumeError}>
+            {t('sessionOverview.resumeFailed', { msg: resumeError })}
+          </span>
         )}
       </div>
 

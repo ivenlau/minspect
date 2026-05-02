@@ -460,7 +460,8 @@ function handleToolAfter(
   // 2. args._minspect_before_content (plugin-side caching in tool.after payload)
   const beforeFromState = state.before_content_by_call[p.callID];
   const beforeFromArgs = (args as { _minspect_before_content?: unknown })._minspect_before_content;
-  const beforeContent = beforeFromState ?? (typeof beforeFromArgs === 'string' ? beforeFromArgs : null);
+  const beforeContent =
+    beforeFromState ?? (typeof beforeFromArgs === 'string' ? beforeFromArgs : null);
   const fileEdits = extractFileEdits(p.tool, args, beforeContent);
   const startedAt = state.tool_started_at_by_call[p.callID] ?? timestamp;
 

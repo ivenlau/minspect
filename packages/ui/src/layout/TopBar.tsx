@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
 import { Search } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { LangToggle } from '../components/LangToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useLang } from '../i18n';
@@ -21,7 +21,14 @@ export interface TopBarProps {
   onSearch?: () => void;
 }
 
-export function TopBar({ crumbs = [], tabs, rightSlot, connected = true, port, onSearch }: TopBarProps) {
+export function TopBar({
+  crumbs = [],
+  tabs,
+  rightSlot,
+  connected = true,
+  port,
+  onSearch,
+}: TopBarProps) {
   const { t } = useLang();
   return (
     <header className={styles.bar}>
@@ -64,12 +71,7 @@ export function TopBar({ crumbs = [], tabs, rightSlot, connected = true, port, o
       {rightSlot}
 
       {onSearch && (
-        <button
-          type="button"
-          className={styles.iconBtn}
-          onClick={onSearch}
-          title="⌘K"
-        >
+        <button type="button" className={styles.iconBtn} onClick={onSearch} title="⌘K">
           <Search size={14} />
         </button>
       )}
