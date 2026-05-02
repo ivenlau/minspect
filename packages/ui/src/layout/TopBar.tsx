@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Search } from 'lucide-react';
 import { LangToggle } from '../components/LangToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useLang } from '../i18n';
@@ -17,9 +18,10 @@ export interface TopBarProps {
   // Connection status for the indicator dot next to the port pill.
   connected?: boolean;
   port?: number | null;
+  onSearch?: () => void;
 }
 
-export function TopBar({ crumbs = [], tabs, rightSlot, connected = true, port }: TopBarProps) {
+export function TopBar({ crumbs = [], tabs, rightSlot, connected = true, port, onSearch }: TopBarProps) {
   const { t } = useLang();
   return (
     <header className={styles.bar}>
@@ -60,6 +62,17 @@ export function TopBar({ crumbs = [], tabs, rightSlot, connected = true, port }:
       <div className={styles.spacer} />
 
       {rightSlot}
+
+      {onSearch && (
+        <button
+          type="button"
+          className={styles.iconBtn}
+          onClick={onSearch}
+          title="⌘K"
+        >
+          <Search size={14} />
+        </button>
+      )}
 
       <LangToggle />
       <ThemeToggle />

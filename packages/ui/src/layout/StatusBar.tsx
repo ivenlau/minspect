@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { type QueueStats, getJson, usePoll } from '../api';
+import { type QueueStats, getJson, postJson, usePoll } from '../api';
 import { useLang } from '../i18n';
 import styles from './StatusBar.module.css';
 
@@ -91,15 +91,36 @@ function PoisonChip({ count }: { count: number }) {
   const [open, setOpen] = useState(false);
   const [events, setEvents] = useState<PoisonEvent[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [purging, setPurging] = useState(false);
+  const [purgeMsg, setPurgeMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
+  const loadEvents = () => {
     setEvents(null);
     setErr(null);
     getJson<{ events: PoisonEvent[] }>('/api/queue/poison')
       .then((r) => setEvents(r.events))
       .catch((e) => setErr((e as Error).message));
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setPurgeMsg(null);
+    loadEvents();
   }, [open]);
+
+  const handlePurge = async () => {
+    setPurging(true);
+    setPurgeMsg(null);
+    try {
+      const res = await postJson<{ purged: number }>('/api/queue/purge', {});
+      setPurgeMsg(t('status.purgeSuccess', { n: res.purged }));
+      loadEvents();
+    } catch (e) {
+      setPurgeMsg(t('status.purgeFailed', { msg: (e as Error).message }));
+    } finally {
+      setPurging(false);
+    }
+  };
 
   return (
     <>
@@ -107,7 +128,6 @@ function PoisonChip({ count }: { count: number }) {
         type="button"
         className={`${styles.chip} ${styles.chipWarn} ${styles.chipBtn}`}
         onClick={() => setOpen(true)}
-        title={t('status.purgeHint')}
       >
         {t('status.poisoned')} {count}
       </button>
@@ -125,7 +145,15 @@ function PoisonChip({ count }: { count: number }) {
           <div className={styles.poisonPanel}>
             <div className={styles.poisonHdr}>
               <strong>{t('status.quarantinedHeader', { n: count })}</strong>
-              <span className={styles.poisonSub}>{t('status.purgeHint')}</span>
+              <button
+                type="button"
+                className={styles.purgeBtn}
+                onClick={handlePurge}
+                disabled={purging}
+              >
+                {purging ? '...' : t('status.purgeBtn')}
+              </button>
+              {purgeMsg && <span className={styles.poisonSub}>{purgeMsg}</span>}
               <button type="button" className={styles.poisonClose} onClick={() => setOpen(false)}>
                 ✕
               </button>

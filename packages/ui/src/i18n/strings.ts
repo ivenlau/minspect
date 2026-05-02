@@ -131,6 +131,15 @@ export const STRINGS = tbl({
     en: 'Run minspect vacuum --clear-poison to purge.',
     zh: '运行 minspect vacuum --clear-poison 以清除。',
   },
+  'status.purgeBtn': { en: 'Purge', zh: '清除' },
+  'status.purgeSuccess': {
+    en: ({ n }: VarBag) => `Purged ${n} event(s).`,
+    zh: ({ n }: VarBag) => `已清除 ${n} 个事件。`,
+  },
+  'status.purgeFailed': {
+    en: ({ msg }: VarBag) => `Purge failed: ${msg}`,
+    zh: ({ msg }: VarBag) => `清除失败：${msg}`,
+  },
   'status.failedToLoadInline': {
     en: ({ msg }: VarBag) => `Failed to load: ${msg}`,
     zh: ({ msg }: VarBag) => `加载失败：${msg}`,

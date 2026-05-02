@@ -54,6 +54,20 @@
   flex: 1;
 }
 
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.iconBtn:hover {
+  color: var(--text-0);
+}
+
 .portPill {
   display: flex;
   align-items: center;

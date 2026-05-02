@@ -601,6 +601,21 @@ export function registerApi(app: FastifyInstance, store: Store): void {
     return { events };
   });
 
+  // Purge all quarantined (poison) events.
+  app.post('/api/queue/purge', async () => {
+    const dir = join(getStateDir(), 'queue', '.poison');
+    if (!existsSync(dir)) return { purged: 0 };
+    const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+    for (const f of files) {
+      try {
+        rmSync(join(dir, f));
+      } catch {
+        /* ignore */
+      }
+    }
+    return { purged: files.length };
+  });
+
   // Light-weight queue-depth endpoint for the status bar. Reads the on-disk
   // queue directory directly — cheaper than querying state DB. Cached
   // decision: cli writes to <state>/queue/, quarantined files end up in
