@@ -124,8 +124,10 @@ export function extractReasoning(transcriptPath: string): ExtractedReasoning {
     preambleThinking = undefined;
   }
 
-  // Pass 2: last assistant message → final reasoning / message (backward-compat
-  // with the earlier single-message extractor).
+  // Pass 2: scan backwards for final message and reasoning. The last assistant
+  // message typically holds the final text reply; thinking blocks may live in
+  // an earlier assistant message (the model emits thinking then tool_use in
+  // separate messages). Walk backwards collecting both.
   let agent_reasoning: string | undefined;
   let agent_final_message: string | undefined;
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -143,9 +145,9 @@ export function extractReasoning(transcriptPath: string): ExtractedReasoning {
     const thinkings = content
       .filter((b) => b.type === 'thinking' && typeof b.thinking === 'string')
       .map((b) => b.thinking as string);
-    if (texts.length > 0) agent_final_message = texts.join('\n\n');
-    if (thinkings.length > 0) agent_reasoning = thinkings.join('\n\n');
-    if (agent_final_message || agent_reasoning) break;
+    if (!agent_final_message && texts.length > 0) agent_final_message = texts.join('\n\n');
+    if (!agent_reasoning && thinkings.length > 0) agent_reasoning = thinkings.join('\n\n');
+    if (agent_final_message && agent_reasoning) break;
   }
 
   return { agent_reasoning, agent_final_message, tool_explanations };

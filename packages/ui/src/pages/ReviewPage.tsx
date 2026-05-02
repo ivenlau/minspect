@@ -268,6 +268,12 @@ function TurnCard({ turn, onRevert }: { turn: ReviewTurn; onRevert: (id: string)
           <span className={styles.cardExpT}>{explanation}</span>
         </div>
       )}
+      {turn.edits.length === 0 && turn.agent_final_message && (
+        <div className={styles.cardExp}>
+          <span className={styles.cardExpL}>{t('blame.inspector.finalMessage')}</span>
+          <span className={styles.cardExpT}>{turn.agent_final_message}</span>
+        </div>
+      )}
       {turn.edits.map((e) => (
         <div key={e.id}>
           <div className={styles.cardEditHdr}>
@@ -290,7 +296,8 @@ function TurnCard({ turn, onRevert }: { turn: ReviewTurn; onRevert: (id: string)
 // ----- Export ----------------------------------------------------------
 
 // Builds a self-contained HTML file from the currently-filtered turns and
-// triggers a download. Handy for PR descriptions or pair-review chats.
+// triggers a download. Reads CSS variable values at runtime so the export
+// matches the current theme (dark / light).
 async function exportReviewHtml(turns: ReviewTurn[]): Promise<void> {
   const esc = (s: string) =>
     s.replace(/[&<>"']/g, (c) =>
@@ -304,25 +311,146 @@ async function exportReviewHtml(turns: ReviewTurn[]): Promise<void> {
               ? '&quot;'
               : '&#39;',
     );
-  const parts: string[] = [
-    '<!doctype html>',
-    '<html><head><meta charset="utf-8"><title>minspect review export</title>',
-    '<style>body{font:13px ui-monospace,Menlo,monospace;background:#0d1117;color:#e6edf3;margin:24px;}h2{margin:24px 0 8px;font-size:16px}.card{border:1px solid #30363d;border-radius:6px;padding:12px;margin:12px 0}.prompt{font-weight:500;margin-bottom:8px}.file{margin-top:8px;color:#58a6ff}.del{background:rgba(248,81,73,.12);color:#e6edf3;padding:0 6px}.add{background:rgba(63,185,80,.12);color:#e6edf3;padding:0 6px}pre{margin:4px 0;white-space:pre-wrap}</style></head><body>',
-    `<h1>minspect review export (${turns.length} turns)</h1>`,
-  ];
-  for (const t of turns) {
-    parts.push(`<div class="card"><div class="prompt">#${t.idx} ${esc(t.user_prompt)}</div>`);
-    for (const e of t.edits) {
-      parts.push(`<div class="file">${esc(e.file_path)}</div>`);
-      for (const h of e.hunks) {
-        if (h.old_text) parts.push(`<pre class="del">${esc(h.old_text)}</pre>`);
-        if (h.new_text) parts.push(`<pre class="add">${esc(h.new_text)}</pre>`);
-      }
+
+  const splitLines = (s: string | null | undefined): string[] => {
+    if (!s) return [];
+    const lines = s.split('\n');
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+    return lines;
+  };
+
+  // Read current theme values from the document root.
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name: string) => cs.getPropertyValue(name).trim();
+
+  const badgeColor = (level: string): { bg: string; fg: string } => {
+    if (level === 'danger') return { bg: v('--danger'), fg: '#fff' };
+    if (level === 'warn') return { bg: v('--warn'), fg: '#0d1117' };
+    if (level === 'success') return { bg: v('--success'), fg: '#0d1117' };
+    return { bg: v('--bg-2'), fg: v('--text-0') }; // info / muted
+  };
+
+  // CSS with tokens resolved to the current theme's computed values.
+  const css = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: ${v('--bg-0')}; color: ${v('--text-0')}; font-family: ${v('--font-sans')}; font-size: ${v('--fs-13')}; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+
+/* layout */
+.main { min-width: 0; display: flex; flex-direction: column; background: ${v('--bg-0')}; min-height: 100vh; }
+.list { flex: 1; overflow: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.listHdr { font-size: ${v('--fs-18')}; font-weight: 600; color: ${v('--text-0')}; padding: 4px 0 8px; }
+
+/* card */
+.card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: ${v('--radius-6')}; border: 1px solid ${v('--border')}; background: ${v('--bg-1')}; }
+.cardDanger { border-color: ${v('--danger')}; }
+.cardHdr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cardIdx { padding: 3px 8px; background: ${v('--bg-2')}; border-radius: ${v('--radius-3')}; font-family: ${v('--font-mono')}; font-size: ${v('--fs-11')}; font-weight: 600; color: ${v('--text-0')}; }
+.cardPrompt { font-size: ${v('--fs-13')}; font-weight: 500; color: ${v('--text-0')}; flex: 1; min-width: 0; }
+.cardHdrBadges { display: flex; gap: 6px; flex-wrap: wrap; }
+.cardMeta { display: flex; gap: 12px; font-size: ${v('--fs-11')}; color: ${v('--text-2')}; }
+.cardMetaSpacer { flex: 1; }
+.cardExp { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: ${v('--bg-2')}; border-radius: ${v('--radius-4')}; }
+.cardExpL { font-size: 9px; font-weight: 600; letter-spacing: 0.8px; color: ${v('--text-2')}; }
+.cardExpT { font-size: ${v('--fs-12')}; color: ${v('--text-1')}; line-height: 1.5; white-space: pre-wrap; }
+.cardEditHdr { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.cardEditIcon { color: ${v('--accent')}; }
+.cardEditFile { font-family: ${v('--font-mono')}; font-size: ${v('--fs-11')}; font-weight: 500; color: ${v('--text-0')}; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cardEditTool { padding: 1px 6px; background: ${v('--bg-2')}; color: ${v('--accent')}; border-radius: ${v('--radius-2')}; font-family: ${v('--font-mono')}; font-size: ${v('--fs-10')}; }
+
+/* badge */
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; font-size: ${v('--fs-10')}; font-weight: 500; border-radius: ${v('--radius-3')}; letter-spacing: 0.2px; }
+
+/* hunk */
+.hunk { border: 1px solid ${v('--border-subtle')}; border-radius: ${v('--radius-4')}; overflow: hidden; font-family: ${v('--font-mono')}; font-size: ${v('--fs-11')}; background: ${v('--bg-0')}; }
+.hunkHead { padding: 4px 10px; background: ${v('--bg-2')}; color: ${v('--text-2')}; font-size: ${v('--fs-10')}; border-bottom: 1px solid ${v('--border-subtle')}; }
+.hunkBody { display: block; }
+.hunkRow { display: flex; align-items: center; min-height: 20px; padding: 0 10px; }
+.hunkDel { background: ${v('--diff-del-bg')}; }
+.hunkAdd { background: ${v('--diff-add-bg')}; }
+.hunkLn { width: 28px; text-align: right; color: ${v('--text-2')}; flex-shrink: 0; user-select: none; }
+.hunkSign { width: 16px; text-align: center; flex-shrink: 0; user-select: none; }
+.hunkSignDel { color: ${v('--danger')}; }
+.hunkSignAdd { color: ${v('--success')}; }
+.hunkCode { color: ${v('--text-0')}; white-space: pre; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+`;
+
+  // Build hunk HTML
+  const renderHunk = (h: { old_text: string | null; new_text: string | null; new_start: number; new_count: number; old_start?: number | null; old_count?: number | null }): string => {
+    const dels = splitLines(h.old_text);
+    const adds = splitLines(h.new_text);
+    const osStart = h.old_start ?? null;
+    const osCount = h.old_count ?? 0;
+    const headTxt = osStart == null
+      ? `@@ new file · +${h.new_count} @@`
+      : `@@ -${osStart},${osCount} +${h.new_start},${h.new_count} @@`;
+
+    let rows = '';
+    for (let i = 0; i < dels.length; i++) {
+      rows += `<div class="hunkRow hunkDel"><span class="hunkLn">${(osStart ?? 0) + i}</span><span class="hunkSign hunkSignDel">&#8722;</span><span class="hunkCode">${esc(dels[i])}</span></div>`;
     }
-    parts.push('</div>');
-  }
-  parts.push('</body></html>');
-  const blob = new Blob([parts.join('\n')], { type: 'text/html' });
+    for (let i = 0; i < adds.length; i++) {
+      rows += `<div class="hunkRow hunkAdd"><span class="hunkLn">${h.new_start + i}</span><span class="hunkSign hunkSignAdd">+</span><span class="hunkCode">${esc(adds[i])}</span></div>`;
+    }
+    return `<div class="hunk"><div class="hunkHead">${esc(headTxt)}</div><div class="hunkBody">${rows}</div></div>`;
+  };
+
+  // Build card HTML
+  const cards = turns
+    .map((t) => {
+      const top = topBadge(t);
+      const isDanger = top?.level === 'danger';
+      const explanation = t.edits.find((e) => e.tool_call_explanation)?.tool_call_explanation ?? null;
+      const dur = t.ended_at ? `${((t.ended_at - t.started_at) / 1000).toFixed(1)}s` : '—';
+      const time = new Date(t.started_at).toLocaleTimeString();
+
+      // Badges
+      const badgesHtml = t.badges
+        .slice(0, 3)
+        .map((b) => {
+          const c = badgeColor(b.level);
+          return `<span class="badge" style="background:${c.bg};color:${c.fg}" title="${esc(b.detail ?? '')}">${esc(b.label)}</span>`;
+        })
+        .join('');
+
+      // Explanation
+      const expHtml = explanation
+        ? `<div class="cardExp"><span class="cardExpL">EXPLANATION</span><span class="cardExpT">${esc(explanation)}</span></div>`
+        : '';
+
+      // Final message for empty turns
+      const finalHtml = t.edits.length === 0 && t.agent_final_message
+        ? `<div class="cardExp"><span class="cardExpL">AGENT FINAL MESSAGE</span><span class="cardExpT">${esc(t.agent_final_message)}</span></div>`
+        : '';
+
+      // Edits
+      const editsHtml = t.edits
+        .map((e) => {
+          const toolTag = e.tool_name ? `<span class="cardEditTool">${esc(e.tool_name)}</span>` : '';
+          const hunksHtml = e.hunks.map(renderHunk).join('\n<div style="margin-top:6px"></div>');
+          return `<div><div class="cardEditHdr"><span class="cardEditIcon">&#128196;</span><span class="cardEditFile">${esc(e.file_path)}</span>${toolTag}</div><div style="margin-top:6px">${hunksHtml}</div></div>`;
+        })
+        .join('');
+
+      return `<section class="card${isDanger ? ' cardDanger' : ''}">
+  <div class="cardHdr"><span class="cardIdx">#${t.idx}</span><span class="cardPrompt">${esc(t.user_prompt || '(no prompt)')}</span><div class="cardHdrBadges">${badgesHtml}</div></div>
+  <div class="cardMeta"><span>turn #${t.idx} · ${t.edits.length} edits</span><span class="cardMetaSpacer"></span><span style="font-family:'JetBrains Mono',monospace">${dur} · ${time}</span></div>
+  ${expHtml}${finalHtml}${editsHtml}
+</section>`;
+    })
+    .join('\n');
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>minspect review export</title><style>${css}</style></head><body>
+<div class="main">
+  <div class="list">
+    <div class="listHdr">minspect review export (${turns.length} turns)</div>
+    ${cards}
+  </div>
+</div>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

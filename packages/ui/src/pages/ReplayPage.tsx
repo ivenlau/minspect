@@ -297,6 +297,16 @@ function StepCard({
         "{step.turn.user_prompt || t('sessionOverview.noPrompt')}"
       </p>
 
+      {step.empty && step.turn.agent_final_message && (
+        <div className={styles.stepExp}>
+          <span className={styles.stepExpBar} />
+          <div className={styles.stepExpBody}>
+            <span className={styles.stepExpL}>{t('blame.inspector.finalMessage')}</span>
+            <span className={styles.stepExpT}>{step.turn.agent_final_message}</span>
+          </div>
+        </div>
+      )}
+
       {step.explanation ? (
         <div className={styles.stepExp}>
           <span className={styles.stepExpBar} />

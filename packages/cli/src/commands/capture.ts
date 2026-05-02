@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import {
   type ClaudeCodePayload,
   FILE_EDITING_TOOLS,
@@ -10,6 +12,14 @@ import {
 import { type Event, readGitState } from '@minspect/core';
 import { type SessionState, readSessionState, writeSessionState } from '../session-state.js';
 import { sendEvent } from '../transport.js';
+
+// Claude Code stores transcripts at ~/.claude/projects/<encoded-cwd>/<session-id>.jsonl
+// The encoding replaces \, /, and : with -.
+function findTranscriptPath(sessionId: string, cwd: string): string | null {
+  const encoded = cwd.replace(/[/\\:]/g, '-');
+  const p = join(homedir(), '.claude', 'projects', encoded, `${sessionId}.jsonl`);
+  return existsSync(p) ? p : null;
+}
 
 export interface CaptureOptions {
   stateRoot?: string; // override ~/.minspect for tests
@@ -144,8 +154,12 @@ export async function runCapture(options: CaptureOptions = {}): Promise<Event[]>
     }
 
     case 'Stop': {
-      const reasoning = payload.transcript_path
-        ? extractReasoning(payload.transcript_path)
+      const transcriptPath =
+        (payload.transcript_path && existsSync(payload.transcript_path)
+          ? payload.transcript_path
+          : null) ?? findTranscriptPath(payload.session_id, payload.cwd);
+      const reasoning = transcriptPath
+        ? extractReasoning(transcriptPath)
         : { tool_explanations: [] };
       if (state.current_turn_id) {
         events.push(
