@@ -24,6 +24,7 @@
       "@biomejs/biome",
       "better-sqlite3",
       "esbuild",
+      "sharp",
       "tree-sitter",
       "tree-sitter-go",
       "tree-sitter-java",

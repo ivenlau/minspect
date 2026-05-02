@@ -10,6 +10,13 @@
 - **路由**：hash-based，无 history fallback
 - **主题**：dark-only（IDE 习惯），暂不做 light
 - **字体**：`@fontsource/inter` + `@fontsource/jetbrains-mono` 本地打包（离线可用）
+- **PWA**（卡 56）：`vite-plugin-pwa` + Workbox，`registerType: 'autoUpdate'`
+  - manifest：name `minspect`，display `standalone`，theme_color `#1a1a2e`
+  - 图标：`pwa-192x192.png` / `pwa-512x512.png`（从 `favicon.svg` 生成）
+  - SW 策略：静态资源 precache（JS/CSS/HTML/字体/图标），API 请求 (`/api/*`, `/events/*`) 排除 precache 始终走网络
+  - dev 模式禁用 SW（`devOptions.enabled: false`）
+  - 构建产物额外包含 `sw.js`、`workbox-*.js`、`registerSW.js`、`manifest.webmanifest`
+  - 用户可安装到桌面为独立窗口应用（无地址栏），离线时静态壳可加载（API 仍需服务在线）
 
 ## 路由表
 
@@ -130,6 +137,25 @@
 - 新 UI 的 revert 入口在卡 25 重新接线；`/legacy/` 通道已在卡 32 下线。
 
 ## Changes
+
+### 56-pwa (closed 2026-05-02)
+
+**Why**
+用户每次需手动打开浏览器输入 localhost 地址。PWA 支持桌面安装、离线缓存静态资源、启动更快。
+
+**Scope 落地**
+- `vite-plugin-pwa` 插件 + Workbox 配置（`registerType: 'autoUpdate'`，API 排除 precache）
+- manifest：name `minspect`，display `standalone`，theme_color `#1a1a2e`
+- PWA 图标：`pwa-192x192.png` / `pwa-512x512.png`（从 `favicon.svg` via sharp 生成）
+- `index.html` 新增 `<meta name="theme-color">` + `<link rel="apple-touch-icon">`
+- dev 模式禁用 SW
+
+**Acceptance（全部通过）**
+- `pnpm build` 产物包含 `sw.js`、`manifest.webmanifest`、PWA 图标
+- 43 entries precached (817 KB)
+- 65 UI tests 全绿
+
+> 完整记录：`minispec/changes/56-pwa.md`.
 
 ### 55-blame-pre-existing (closed 2026-05-01)
 
