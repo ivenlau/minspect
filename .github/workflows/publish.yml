@@ -5,12 +5,13 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  id-token: write  # Required for npm Trusted Publisher (OIDC)
+  contents: write  # Required for gh release create
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # for gh release create
-      id-token: write # for npm trusted publisher (OIDC)
     steps:
       - uses: actions/checkout@v4
 
@@ -45,8 +46,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: packages/cli/dist-bundle
-        run: npm publish --access public --provenance
-        # Trusted Publisher via OIDC — no NPM_TOKEN needed
+        run: npm publish
 
       - name: Create GitHub Release
         run: gh release create "$GITHUB_REF_NAME" --generate-notes
