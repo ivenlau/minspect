@@ -46,7 +46,9 @@ jobs:
 
       - name: Publish to npm
         working-directory: packages/cli/dist-bundle
-        run: npm publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         run: gh release create "$GITHUB_REF_NAME" --generate-notes
