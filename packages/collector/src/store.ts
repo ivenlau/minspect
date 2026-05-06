@@ -93,27 +93,39 @@ export class Store {
   }
 
   // Delete a workspace and all related data in a single transaction.
-  // Returns true if the workspace existed and was deleted, false if not found.
+  // Uses bulk DELETEs by workspace_id instead of iterating sessions, so it
+  // stays fast even when a workspace has hundreds of sessions.
   deleteWorkspace(workspaceId: string): boolean {
     const txn = this.db.transaction(() => {
       const ws = this.db.prepare('SELECT id FROM workspaces WHERE id = ?').get(workspaceId);
       if (!ws) return false;
 
-      // Delete each session (cascades through turns, edits, hunks, etc.)
-      const sessionIds = this.db
-        .prepare('SELECT id FROM sessions WHERE workspace_id = ?')
-        .all(workspaceId) as Array<{ id: string }>;
-      for (const s of sessionIds) {
-        this.deleteSession(s.id);
-      }
-
-      // Tables keyed directly on workspace_id (not covered by deleteSession).
+      // Bulk-delete child tables in dependency order. Tables that have
+      // workspace_id directly use it; others go through subqueries.
+      this.db
+        .prepare(
+          `DELETE FROM tool_calls WHERE turn_id IN
+           (SELECT id FROM turns WHERE session_id IN
+            (SELECT id FROM sessions WHERE workspace_id = ?))`,
+        )
+        .run(workspaceId);
+      this.db
+        .prepare(`DELETE FROM hunks WHERE edit_id IN (SELECT id FROM edits WHERE workspace_id = ?)`)
+        .run(workspaceId);
+      this.db
+        .prepare(
+          `DELETE FROM edit_ast_impact WHERE edit_id IN (SELECT id FROM edits WHERE workspace_id = ?)`,
+        )
+        .run(workspaceId);
       this.db.prepare('DELETE FROM line_blame WHERE workspace_id = ?').run(workspaceId);
-      this.db.prepare('DELETE FROM ast_nodes WHERE workspace_id = ?').run(workspaceId);
       this.db.prepare('DELETE FROM commit_links WHERE workspace_id = ?').run(workspaceId);
       if (this.ftsEnabled) {
         this.db.prepare('DELETE FROM search_index WHERE workspace_id = ?').run(workspaceId);
       }
+      this.db.prepare('DELETE FROM turns WHERE session_id IN (SELECT id FROM sessions WHERE workspace_id = ?)').run(workspaceId);
+      this.db.prepare('DELETE FROM edits WHERE workspace_id = ?').run(workspaceId);
+      this.db.prepare('DELETE FROM sessions WHERE workspace_id = ?').run(workspaceId);
+      this.db.prepare('DELETE FROM ast_nodes WHERE workspace_id = ?').run(workspaceId);
 
       // Workspace row itself.
       this.db.prepare('DELETE FROM workspaces WHERE id = ?').run(workspaceId);
