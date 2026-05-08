@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>minspect — Git blame for AI coding agents</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent-primary: #58a6ff;
+      --accent-violet: #a78bfa;
+      --accent-amber: #d29922;
+      --accent-green: #3fb950;
+      --accent-red: #f85149;
+      --border-primary: #30363d;
+      --border-subtle: #21262d;
+      --foreground-muted: #6e7681;
+      --foreground-primary: #e6edf3;
+      --foreground-secondary: #8b949e;
+      --surface-elevated: #1f2428;
+      --surface-primary: #0d1117;
+      --surface-secondary: #161b22;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--surface-primary);
+      color: var(--foreground-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono { font-family: 'IBM Plex Mono', 'Consolas', monospace; }
+
+    a { color: var(--accent-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container { max-width: 1440px; margin: 0 auto; }
+
+    /* ─── Nav ─── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      padding: 0 120px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-primary);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-left { display: flex; align-items: center; gap: 8px; }
+    .nav-left .logo-icon {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-left .logo-icon img { width: 32px; height: 32px; }
+    .nav-left .logo-text {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px; font-weight: 600;
+      color: var(--foreground-primary);
+    }
+    .nav-center { display: flex; align-items: center; gap: 32px; }
+    .nav-center a {
+      font-size: 14px; font-weight: 500;
+      color: var(--foreground-secondary);
+      text-decoration: none;
+    }
+    .nav-center a:hover { color: var(--foreground-primary); }
+    .nav-right .badge {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px; font-weight: 500;
+      color: var(--foreground-secondary);
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    /* ─── Hero ─── */
+    .hero {
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: 100px 120px 80px;
+      gap: 32px;
+      text-align: center;
+    }
+    .hero-headline {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .hero-line1 {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 56px; font-weight: 700; letter-spacing: -1.5px;
+    }
+    .hero-line1 .highlight {
+      background: var(--accent-primary);
+      color: var(--surface-primary);
+      padding: 4px 12px;
+      border-radius: 4px;
+    }
+    .hero-line2 {
+      font-size: 56px; font-weight: 700; letter-spacing: -1.5px;
+    }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--foreground-secondary);
+      max-width: 640px;
+      line-height: 1.6;
+    }
+    .hero-cta { display: flex; align-items: center; gap: 16px; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent-primary);
+      color: #fff; font-size: 15px; font-weight: 600;
+      padding: 14px 28px;
+      border-radius: 8px;
+      border: none; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; text-decoration: none; }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent;
+      color: var(--foreground-primary); font-size: 15px; font-weight: 500;
+      padding: 14px 28px;
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--foreground-secondary); text-decoration: none; }
+    .trust-strip {
+      display: flex; align-items: center; gap: 24px;
+      padding-top: 16px;
+    }
+    .trust-item {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--foreground-muted);
+    }
+    .trust-item svg { color: var(--accent-green); flex-shrink: 0; }
+    .trust-dot { color: var(--foreground-muted); }
+
+    /* ─── Diagram ─── */
+    .diagram-section {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 60px 120px 80px;
+      gap: 40px;
+      background: var(--surface-secondary);
+    }
+    .diagram-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px; font-weight: 500;
+      color: var(--foreground-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .diagram {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      width: 100%; max-width: 1000px;
+    }
+    .diagram-node {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+      padding: 16px 12px;
+      border: 1px solid;
+      border-radius: 8px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .diagram-node .label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .diagram-node .value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--foreground-primary);
+    }
+    .arrow {
+      width: 40px; height: 1px;
+      background: var(--border-primary);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .arrow::after {
+      content: '';
+      position: absolute; right: 0; top: -3px;
+      border: 4px solid transparent;
+      border-left: 5px solid var(--border-primary);
+    }
+
+    /* ─── Stats ─── */
+    .stats-strip {
+      display: flex; justify-content: center;
+      gap: 80px;
+      padding: 48px 120px;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .stat { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .stat-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 40px; font-weight: 700;
+      color: var(--accent-primary);
+    }
+    .stat-label { font-size: 14px; color: var(--foreground-secondary); }
+
+    /* ─── Features ─── */
+    .features-section {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 80px 120px;
+      gap: 48px;
+    }
+    .features-header {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .features-header h2 {
+      font-size: 40px; font-weight: 700; letter-spacing: -1px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+    }
+    .feature-card {
+      display: flex; flex-direction: column; gap: 16px;
+      padding: 28px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      background: var(--surface-primary);
+    }
+    .feature-icon {
+      width: 40px; height: 40px;
+      background: var(--surface-elevated);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .feature-card h3 { font-size: 18px; font-weight: 600; }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--foreground-secondary);
+      line-height: 1.5;
+    }
+
+    /* ─── How it works ─── */
+    .how-section {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 80px 120px;
+      gap: 48px;
+      background: var(--surface-secondary);
+    }
+    .how-header {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .how-header h2 { font-size: 40px; font-weight: 700; letter-spacing: -1px; }
+    .how-header p { font-size: 16px; color: var(--foreground-secondary); }
+    .steps-row {
+      display: flex; justify-content: center; gap: 40px;
+    }
+    .step {
+      display: flex; flex-direction: column; gap: 20px;
+      width: 280px;
+    }
+    .step-num {
+      width: 40px; height: 40px;
+      border: 1px solid var(--accent-primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px; font-weight: 700;
+      color: var(--accent-primary);
+    }
+    .step h3 { font-size: 20px; font-weight: 600; }
+    .step p { font-size: 14px; color: var(--foreground-secondary); line-height: 1.6; }
+    .step-code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--accent-green);
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 12px 16px;
+      border-radius: 8px;
+      width: 100%;
+    }
+
+    /* ─── CTA ─── */
+    .cta-section {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 80px 120px;
+      gap: 28px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .cta-headline {
+      font-size: 40px; font-weight: 700; letter-spacing: -1px;
+      text-align: center;
+    }
+    .cta-headline .highlight {
+      background: var(--accent-primary);
+      color: var(--surface-primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .cta-sub {
+      font-size: 16px;
+      color: var(--foreground-secondary);
+      text-align: center;
+    }
+    .cta-buttons { display: flex; align-items: center; gap: 16px; }
+    .btn-large {
+      padding: 16px 32px;
+      font-size: 15px;
+    }
+    .agents-row {
+      display: flex; align-items: center; gap: 12px;
+      padding-top: 8px;
+    }
+    .agents-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .agent-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px; font-weight: 500;
+      color: var(--foreground-secondary);
+      border: 1px solid var(--border-primary);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    /* ─── Footer ─── */
+    footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 120px;
+      background: var(--surface-secondary);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .footer-left {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .footer-logo {
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .footer-logo img { width: 24px; height: 24px; }
+    .footer-copy {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .footer-right {
+      display: flex; align-items: center; gap: 20px;
+    }
+    .footer-right a {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .footer-right a:hover { color: var(--foreground-primary); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1024px) {
+      nav, .hero, .diagram-section, .features-section,
+      .how-section, .cta-section, footer {
+        padding-left: 40px;
+        padding-right: 40px;
+      }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .docs-grid { grid-template-columns: 1fr; }
+      .hero-line1, .hero-line2 { font-size: 40px; }
+      .cta-headline { font-size: 32px; }
+    }
+    @media (max-width: 768px) {
+      nav, .hero, .diagram-section, .features-section,
+      .how-section, .cta-section, footer {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+      .nav-center { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .stats-strip { flex-direction: column; gap: 32px; }
+      .steps-row { flex-direction: column; align-items: center; }
+      .diagram { overflow-x: auto; }
+      .hero-line1, .hero-line2 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Nav ─── -->
+<nav>
+  <div class="nav-left">
+    <div class="logo-icon">
+      <img src="favicon.svg" alt="minspect">
+    </div>
+    <span class="logo-text mono">minspect</span>
+  </div>
+  <div class="nav-center">
+    <a href="#features">Features</a>
+    <a href="docs.html">Docs</a>
+    <a href="https://github.com/ivenlau/minspect" target="_blank">GitHub</a>
+  </div>
+  <div class="nav-right">
+    <span class="badge mono">npm install -g @ivenlau/minspect</span>
+  </div>
+</nav>
+
+<!-- ─── Hero ─── -->
+<section class="hero">
+  <div class="hero-headline">
+    <div class="hero-line1">
+      Git blame for
+      <span class="highlight">AI agents</span>
+    </div>
+    <div class="hero-line2">&mdash; down to the line.</div>
+  </div>
+  <p class="hero-sub">
+    Record what every AI coding agent changed, why it changed,
+    and through which prompt &mdash; with full attribution.
+  </p>
+  <div class="hero-cta">
+    <a href="docs.html" class="btn-primary">Get started</a>
+    <a href="https://github.com/ivenlau/minspect" target="_blank" class="btn-secondary">
+      View on GitHub
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </a>
+  </div>
+  <div class="trust-strip">
+    <div class="trust-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      100% local
+    </div>
+    <span class="trust-dot">&middot;</span>
+    <div class="trust-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+      No telemetry
+    </div>
+    <span class="trust-dot">&middot;</span>
+    <div class="trust-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      MIT licensed
+    </div>
+  </div>
+</section>
+
+<!-- ─── Attribution Chain Diagram ─── -->
+<section class="diagram-section">
+  <span class="diagram-title mono">Full attribution chain</span>
+  <div class="diagram">
+    <div class="diagram-node" style="border-color: var(--accent-primary);">
+      <span class="label" style="color: var(--accent-primary);">SESSION</span>
+      <span class="value">auth-feature</span>
+    </div>
+    <div class="arrow"></div>
+    <div class="diagram-node" style="border-color: var(--accent-violet);">
+      <span class="label" style="color: var(--accent-violet);">TURN</span>
+      <span class="value">#3</span>
+    </div>
+    <div class="arrow"></div>
+    <div class="diagram-node" style="border-color: var(--accent-amber);">
+      <span class="label" style="color: var(--accent-amber);">PROMPT</span>
+      <span class="value">"Add JWT..."</span>
+    </div>
+    <div class="arrow"></div>
+    <div class="diagram-node" style="border-color: var(--accent-green);">
+      <span class="label" style="color: var(--accent-green);">REASONING</span>
+      <span class="value">"I'll add..."</span>
+    </div>
+    <div class="arrow"></div>
+    <div class="diagram-node" style="border-color: var(--accent-red);">
+      <span class="label" style="color: var(--accent-red);">HUNK</span>
+      <span class="value">+42 -8</span>
+    </div>
+    <div class="arrow"></div>
+    <div class="diagram-node" style="border-color: var(--foreground-muted);">
+      <span class="label" style="color: var(--foreground-muted);">LINE</span>
+      <span class="value">auth.ts:47</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Stats ─── -->
+<section class="stats-strip">
+  <div class="stat">
+    <span class="stat-num mono">0</span>
+    <span class="stat-label">blocked agent edits</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num mono">100%</span>
+    <span class="stat-label">local &mdash; no cloud</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num mono">&lt;2ms</span>
+    <span class="stat-label">capture latency</span>
+  </div>
+</section>
+
+<!-- ─── Features ─── -->
+<section class="features-section" id="features">
+  <div class="features-header">
+    <h2>Everything you need to inspect<br>AI-authored code</h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></svg>
+      </div>
+      <h3>AI Blame</h3>
+      <p>Every line colored by the turn that wrote it. Click to see the prompt and agent reasoning.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-violet)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12h4"/><path d="M10 18h4"/></svg>
+      </div>
+      <h3>Review</h3>
+      <p>Inline diffs for every edit. Filter by file, keyword, or severity. Export to self-contained HTML.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      <h3>Dashboard</h3>
+      <p>Activity charts, top workspaces, top agents, and alerts &mdash; all at a glance.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <h3>Replay</h3>
+      <p>Step through tool calls one at a time with keyboard navigation. See exactly what the agent did.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+      </div>
+      <h3>Revert</h3>
+      <p>Revert individual turns or edits with drift detection. Dry-run by default for safety.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--foreground-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <h3>Command Palette</h3>
+      <p>&#8984;K to search across all sessions &mdash; prompts, reasoning, tool calls, and file paths.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How it works ─── -->
+<section class="how-section">
+  <div class="how-header">
+    <h2>How it works</h2>
+    <p>Three steps. Zero config. Works with your existing workflow.</p>
+  </div>
+  <div class="steps-row">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Install &amp; init</h3>
+      <p>npm install -g @ivenlau/minspect && minspect init. Hooks are installed automatically for Claude Code, Codex CLI, and OpenCode.</p>
+      <div class="step-code">$ minspect init</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Code as usual</h3>
+      <p>Use your AI coding agents normally. minspect captures every edit in the background &mdash; no slowdown, no interruptions.</p>
+      <div class="step-code">$ claude</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Inspect &amp; review</h3>
+      <p>Open the dashboard at localhost. See what changed, replay sessions, and revert if needed.</p>
+      <p></p>
+      <div class="step-code">$ open 127.0.0.1:21477</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA ─── -->
+<section class="cta-section">
+  <div class="cta-headline">Stop guessing what the AI </div><div class="cta-headline">did. Start <span class="highlight">inspecting</span>.</div>
+  <p class="cta-sub">Open source. Local-first. Works with Claude Code, Codex CLI, and OpenCode.</p>
+  <div class="cta-buttons">
+    <a href="docs.html" class="btn-primary btn-large mono">npm install -g @ivenlau/minspect</a>
+    <a href="https://github.com/ivenlau/minspect" target="_blank" class="btn-secondary btn-large">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      Star on GitHub
+    </a>
+  </div>
+  <div class="agents-row">
+    <span class="agents-label mono">Works with:</span>
+    <span class="agent-badge mono">Claude Code</span>
+    <span class="agent-badge mono">Codex CLI</span>
+    <span class="agent-badge mono">OpenCode</span>
+  </div>
+</section>
+
+<!-- ─── Footer ─── -->
+<footer>
+  <div class="footer-left">
+    <div class="footer-logo">
+      <img src="favicon.svg" alt="minspect">
+    </div>
+    <span class="footer-copy">minspect &middot; MIT License &middot; Made by ivenlau</span>
+  </div>
+  <div class="footer-right">
+    <a href="https://github.com/ivenlau/minspect" target="_blank">GitHub</a>
+    <a href="https://www.npmjs.com/package/@ivenlau/minspect" target="_blank">npm</a>
+    <a href="docs.html">Docs</a>
+  </div>
+</footer>
+
+</body>
+</html>

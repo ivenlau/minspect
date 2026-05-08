@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>minspect — Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent-primary: #58a6ff;
+      --accent-violet: #a78bfa;
+      --accent-amber: #d29922;
+      --accent-green: #3fb950;
+      --accent-red: #f85149;
+      --border-primary: #30363d;
+      --border-subtle: #21262d;
+      --foreground-muted: #6e7681;
+      --foreground-primary: #e6edf3;
+      --foreground-secondary: #8b949e;
+      --surface-elevated: #1f2428;
+      --surface-primary: #0d1117;
+      --surface-secondary: #161b22;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--surface-primary);
+      color: var(--foreground-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono { font-family: 'IBM Plex Mono', 'Consolas', monospace; }
+
+    a { color: var(--accent-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ─── Nav ─── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      padding: 0 120px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-primary);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-left { display: flex; align-items: center; gap: 8px; }
+    .nav-left .logo-icon {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-left .logo-icon img { width: 32px; height: 32px; }
+    .nav-left .logo-text {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px; font-weight: 600;
+      color: var(--foreground-primary);
+    }
+    .nav-center { display: flex; align-items: center; gap: 32px; }
+    .nav-center a {
+      font-size: 14px; font-weight: 500;
+      color: var(--foreground-secondary);
+      text-decoration: none;
+    }
+    .nav-center a:hover { color: var(--foreground-primary); }
+    .nav-center a.active { color: var(--foreground-primary); }
+    .nav-right .badge {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px; font-weight: 500;
+      color: var(--foreground-secondary);
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    /* ─── Docs ─── */
+    .docs-header {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 80px 120px 48px;
+      gap: 12px;
+      text-align: center;
+    }
+    .docs-header h1 {
+      font-size: 48px; font-weight: 700; letter-spacing: -1.5px;
+    }
+    .docs-header p {
+      font-size: 18px;
+      color: var(--foreground-secondary);
+      max-width: 640px;
+    }
+
+    .docs-content {
+      display: flex;
+      gap: 48px;
+      padding: 0 120px 80px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar */
+    .docs-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 80px;
+      align-self: flex-start;
+    }
+    .docs-sidebar nav { display: flex; flex-direction: column; gap: 4px; border: none; background: none; position: static; height: auto; padding: 0; }
+    .docs-sidebar a {
+      font-size: 14px;
+      color: var(--foreground-secondary);
+      padding: 8px 12px;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .docs-sidebar a:hover {
+      background: var(--surface-elevated);
+      color: var(--foreground-primary);
+      text-decoration: none;
+    }
+
+    /* Main content */
+    .docs-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+
+    .doc-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .doc-section h2 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .doc-section h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent-primary);
+      margin-top: 8px;
+    }
+    .doc-section p {
+      font-size: 15px;
+      color: var(--foreground-secondary);
+      line-height: 1.7;
+    }
+    .doc-section strong { color: var(--foreground-primary); font-weight: 600; }
+
+    .doc-section code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      background: var(--surface-elevated);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent-green);
+    }
+    .doc-section pre {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 16px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      color: var(--foreground-secondary);
+      line-height: 1.7;
+    }
+
+    .doc-section table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .doc-section th, .doc-section td {
+      text-align: left;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .doc-section th {
+      color: var(--foreground-muted);
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .doc-section td { color: var(--foreground-secondary); }
+
+    .doc-section ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .doc-section li {
+      font-size: 15px;
+      color: var(--foreground-secondary);
+      padding-left: 20px;
+      position: relative;
+    }
+    .doc-section li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+    }
+
+    /* ─── Footer ─── */
+    footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 120px;
+      background: var(--surface-secondary);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .footer-left { display: flex; align-items: center; gap: 8px; }
+    .footer-logo {
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .footer-logo img { width: 24px; height: 24px; }
+    .footer-copy {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .footer-right { display: flex; align-items: center; gap: 20px; }
+    .footer-right a {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .footer-right a:hover { color: var(--foreground-primary); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1024px) {
+      nav, .docs-header, .docs-content, footer { padding-left: 40px; padding-right: 40px; }
+      .docs-content { flex-direction: column; }
+      .docs-sidebar { width: 100%; position: static; }
+      .docs-sidebar nav { flex-direction: row; flex-wrap: wrap; }
+    }
+    @media (max-width: 768px) {
+      nav, .docs-header, .docs-content, footer { padding-left: 20px; padding-right: 20px; }
+      .nav-center { display: none; }
+      .docs-header h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Nav ─── -->
+<nav>
+  <div class="nav-left">
+    <div class="logo-icon">
+      <img src="favicon.svg" alt="minspect">
+    </div>
+    <span class="logo-text mono">minspect</span>
+  </div>
+  <div class="nav-center">
+    <a href="index.html#features">Features</a>
+    <a href="docs.html" class="active">Docs</a>
+    <a href="https://github.com/ivenlau/minspect" target="_blank">GitHub</a>
+  </div>
+  <div class="nav-right">
+    <span class="badge mono">npm install -g @ivenlau/minspect</span>
+  </div>
+</nav>
+
+<!-- ─── Header ─── -->
+<div class="docs-header">
+  <h1>Documentation</h1>
+  <p>Everything you need to install, configure, and use minspect to inspect AI-authored code.</p>
+</div>
+
+<!-- ─── Content ─── -->
+<div class="docs-content">
+
+  <!-- Sidebar -->
+  <aside class="docs-sidebar">
+    <nav>
+      <a href="#quick-start">Quick Start</a>
+      <a href="#agents">Supported Agents</a>
+      <a href="#commands">CLI Commands</a>
+      <a href="#revert">Reverting Changes</a>
+      <a href="#codex">Importing Codex</a>
+      <a href="#ui">Web UI Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#privacy">Data &amp; Privacy</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#diagnose">Diagnosing Problems</a>
+      <a href="#uninstall">Uninstall</a>
+      <a href="#limitations">Known Limitations</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="docs-main">
+
+    <section class="doc-section" id="quick-start">
+      <h2>Quick Start</h2>
+      <h3>1. Install</h3>
+      <p>macOS / Linux:</p>
+      <pre>curl -fsSL https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.sh | sh</pre>
+      <p>Windows (PowerShell):</p>
+      <pre>iwr https://raw.githubusercontent.com/ivenlau/minspect/main/scripts/install.ps1 | iex</pre>
+      <p>Or directly via npm:</p>
+      <pre>npm install -g @ivenlau/minspect</pre>
+      <p>From source:</p>
+      <pre>pnpm install
+pnpm -r build
+pnpm -C packages/cli link --global</pre>
+      <h3>2. Run <code>minspect init</code></h3>
+      <pre>minspect init</pre>
+      <p>Detects which agents you have, interactively installs their hooks, optionally imports recent Codex sessions, installs the post-commit hook if in a git repo, then starts <code>serve</code> and opens the UI on <code>http://127.0.0.1:21477</code>. Pass <code>--yes</code> for non-interactive.</p>
+      <p>Re-running <code>init</code> is safe &mdash; anything already wired is skipped.</p>
+      <h3>3. Use your AI as normal</h3>
+      <p>Chat with Claude Code / Codex / OpenCode as you always would. Every edit, tool call, prompt, and piece of agent reasoning is recorded in the background.</p>
+      <h3>4. Review</h3>
+      <p>Open the web UI to inspect sessions, blame lines, replay tool calls, and revert changes.</p>
+    </section>
+
+    <section class="doc-section" id="agents">
+      <h2>Supported Agents</h2>
+      <table>
+        <tr><th>Agent</th><th>Method</th><th>Status</th></tr>
+        <tr><td>Claude Code</td><td>Native hooks</td><td>Full support (edits, reasoning, commit-link)</td></tr>
+        <tr><td>Codex CLI</td><td>Session-log import (<code>rollout-*.jsonl</code>)</td><td>Full support (apply_patch &rarr; line blame)</td></tr>
+        <tr><td>OpenCode</td><td>Plugin (<code>event</code> / <code>tool.execute.*</code>)</td><td>Full support (edits, reasoning, file path attribution)</td></tr>
+      </table>
+    </section>
+
+    <section class="doc-section" id="commands">
+      <h2>Everyday Commands</h2>
+      <pre>minspect                          # default: status (daemon, queue, last event, hooks)
+minspect init                     # one-shot setup (re-runnable)
+minspect serve                    # start the daemon + UI (port 21477)
+minspect stop                     # stop the daemon
+minspect doctor                   # 8-point diagnostic
+minspect uninstall --all --yes    # symmetric to install (--purge also wipes state)
+minspect import-codex --latest    # manually import a Codex rollout</pre>
+    </section>
+
+    <section class="doc-section" id="revert">
+      <h2>Reverting AI Changes</h2>
+      <p><code>minspect</code> keeps every before/after snapshot, so it can restore files to the state they were in before a specific turn or edit.</p>
+      <pre># Dry-run first &mdash; see what would change
+minspect revert --turn &lt;turn_id&gt;
+
+# Actually write to disk
+minspect revert --turn &lt;turn_id&gt; --yes
+
+# Revert a single edit (one file)
+minspect revert --edit &lt;edit_id&gt; --yes
+
+# Override drift detection
+minspect revert --turn &lt;turn_id&gt; --yes --force</pre>
+      <h3>Safety Guarantees</h3>
+      <ul>
+        <li><strong>Dry-run by default</strong> &mdash; you must pass <code>--yes</code> to actually write.</li>
+        <li><strong>Drift detection</strong> &mdash; if the file on disk has been modified since minspect last recorded it, revert aborts (override with <code>--force</code>).</li>
+        <li><strong>Codex hard-block</strong> &mdash; Codex-imported sessions are refused because their patch logs only capture hunk windows, not full files.</li>
+        <li><strong>Chain-break warnings</strong> &mdash; if user edits are detected between the target and the current state, they're listed before you confirm.</li>
+        <li><strong>Server-side stays read-only</strong> &mdash; the collector never writes to your workspace. The CLI is the only path to disk.</li>
+      </ul>
+    </section>
+
+    <section class="doc-section" id="codex">
+      <h2>Importing Existing Codex Sessions</h2>
+      <p>Codex has no hook API, so its logs are imported after the fact:</p>
+      <pre># Newest session
+minspect import-codex --latest
+
+# Specific session by path or UUID
+minspect import-codex --session rollout-2026-02-26T16-22-56-019c990b-....jsonl
+minspect import-codex --session 019c990b
+
+# Bulk import anything in the last 30 days
+minspect import-codex --all --since 30d</pre>
+      <p>Re-import is idempotent &mdash; Codex's own UUIDs become stable primary keys.</p>
+    </section>
+
+    <section class="doc-section" id="ui">
+      <h2>Web UI Features</h2>
+      <ul>
+        <li><strong>Dashboard</strong> &mdash; activity chart (today / week / 30 days / year), top workspaces, top agents, recent alerts.</li>
+        <li><strong>Timeline</strong> &mdash; sessions in reverse chronological order across every workspace.</li>
+        <li><strong>Session &rarr; Files</strong> &mdash; per-file edit counts, click through to blame.</li>
+        <li><strong>Blame</strong> &mdash; every line coloured by the turn that wrote it; click a line to see the prompt, agent's thinking, and the final message.</li>
+        <li><strong>Review</strong> &mdash; all edits in a session with inline diffs, filter by file / keyword / level, export to self-contained HTML for PR attachments.</li>
+        <li><strong>Replay</strong> &mdash; step through tool calls one at a time with keyboard navigation (&larr;/&rarr;, Home/End, Space for autoplay).</li>
+        <li><strong>Revert</strong> &mdash; "Revert this turn" button on Review cards and Replay steps; opens a preview modal and generates a copyable CLI command.</li>
+        <li><strong>Command palette</strong> (&#8984;K / Ctrl+K) &mdash; cross-session FTS5 search over prompts, reasoning, tool-call explanations, and file paths.</li>
+        <li><strong>EN / 中 toggle</strong> &mdash; full Chinese translation next to the theme toggle.</li>
+      </ul>
+    </section>
+
+    <section class="doc-section" id="how">
+      <h2>How It Works</h2>
+      <pre>&#9500;&#9472; agent (Claude Code / Codex CLI / OpenCode)
+&#9474;     &#9474;  hook fires  &#9472;or&#9472;  session log written
+&#9474;     &#9660;
+&#9504;&#9472; `minspect capture`  (short-lived; exits &le;100 ms; never blocks agent)
+&#9474;     &#9474;  POST Event  &#9472;or&#9472;  enqueue to disk if daemon down
+&#9474;     &#9660;
+&#9504;&#9472; Collector daemon (Fastify + SQLite + WAL, default port 21477)
+&#9474;     &#9474;  single-transaction ingest
+&#9474;     &#9660;
+&#9504;&#9472; Indexer
+&#9474;     &#9500;&#9472; structuredPatch diff &#8594; hunks
+&#9474;     &#9500;&#9472; line blame propagation (hash chain; break on user edits)
+&#9474;     &#9500;&#9472; tree-sitter AST (TS/JS/Python/Go/Rust/Java) for method-level aggregation
+&#9474;     &#9492;&#9472; post-commit hook &#8594; commit_links
+&#9474;     &#9660;
+&#9492;&#9472; Web UI (React + Vite SPA, bundled into the daemon)</pre>
+      <h3>Key Design Choices</h3>
+      <ul>
+        <li><strong>Hooks never block the agent</strong>: failures write to stderr and <code>exit 0</code>; network failures enqueue events to disk and drain on the next hook invocation.</li>
+        <li><strong>Ingest is idempotent</strong>: every INSERT uses <code>ON CONFLICT DO NOTHING</code> and IDs are deterministic.</li>
+        <li><strong>Agent reasoning comes from the agent itself</strong>: extracted from transcripts. No extra LLM calls, no API key.</li>
+        <li><strong>Blame chains break cleanly on user edits</strong>: if <code>before_hash</code> of edit N+1 doesn't match <code>after_hash</code> of edit N, the chain resets.</li>
+      </ul>
+    </section>
+
+    <section class="doc-section" id="privacy">
+      <h2>Data &amp; Privacy</h2>
+      <ul>
+        <li><strong>SQLite file:</strong> <code>&lt;state_dir&gt;/history.sqlite</code> (WAL mode)</li>
+        <li><strong>State dir:</strong> <code>%LOCALAPPDATA%\minspect</code> (Windows) or <code>~/.local/state/minspect</code> (Linux/macOS)</li>
+        <li><strong>Daemon state:</strong> <code>&lt;state_dir&gt;/state.json</code> &mdash; port / pid / started_at / spawned_by</li>
+        <li><strong>Per-session state:</strong> <code>&lt;state_dir&gt;/sessions/&lt;session_id&gt;.json</code></li>
+        <li><strong>Disk queue:</strong> <code>&lt;state_dir&gt;/queue/&lt;timestamp&gt;-&lt;uuid&gt;.json</code></li>
+        <li><strong>User config:</strong> <code>&lt;state_dir&gt;/config.json</code> &mdash; currently just <code>auto_spawn_daemon</code></li>
+      </ul>
+      <p>To wipe all history: <code>minspect uninstall --all --purge --yes</code></p>
+      <p>Nothing leaves your machine unless you explicitly opt into the LLM explainer (<code>config.explainer.enabled = true</code>), in which case hunks are sent to Anthropic's API using your own key.</p>
+    </section>
+
+    <section class="doc-section" id="architecture">
+      <h2>Repository Architecture</h2>
+      <pre>packages/
+&#9500;&#9472;&#9472; core/                 &#9472; Event schema (zod), DB schema, migrations, git helpers
+&#9500;&#9472;&#9472; collector/            &#9472; Fastify server, SQLite store, blame + AST indexers,
+&#9474;                           LLM explainer (opt-in), Claude-Code transcript parser
+&#9500;&#9472;&#9472; cli/                  &#9472; `minspect` binary: init, status, serve, stop, doctor,
+&#9474;                           capture, install, uninstall, import-codex, revert, vacuum
+&#9500;&#9472;&#9472; ui/                   &#9472; React + Vite SPA (dark/light theme, EN/zh i18n)
+&#9492;&#9472;&#9472; adapters/
+    &#9500;&#9472;&#9472; claude-code/      &#9472; hook payload &#8594; Event; transcript reasoning extraction
+    &#9500;&#9472;&#9472; codex/            &#9472; rollout-*.jsonl parser + apply_patch &#8594; file_edits
+    &#9500;&#9472;&#9472; opencode/         &#9472; plugin envelope &#8594; Event (edit / write / reasoning)
+    &#9492;&#9472;&#9472; aider/            &#9472; skeleton (reserved)</pre>
+      <h3>Scripts</h3>
+      <pre>pnpm build      # tsc across all packages
+pnpm test       # vitest across all packages (~351 tests)
+pnpm lint       # biome check .
+pnpm format     # biome format --write .</pre>
+    </section>
+
+    <section class="doc-section" id="diagnose">
+      <h2>Diagnosing Problems</h2>
+      <pre>minspect doctor</pre>
+      <p>Prints 8 checks (Node version, state dir, daemon, installed hooks, DB, recent activity) with &#10003;/&#9888;/&#10007; and a <code>fix:</code> hint next to anything that's not ok. Use <code>--json</code> for a machine-readable report.</p>
+    </section>
+
+    <section class="doc-section" id="uninstall">
+      <h2>Uninstall</h2>
+      <pre># Preview what will be removed (dry-run)
+minspect uninstall --all
+
+# Apply: strip hooks, stop daemon, remove post-commit hook
+minspect uninstall --all --yes
+
+# Also delete the SQLite DB and captured sessions (irreversible)
+minspect uninstall --all --purge --yes</pre>
+      <p><code>uninstall</code> is symmetric to <code>install</code>: it only touches the blocks our hooks wrote. User-authored hooks around those blocks are preserved, and every file touched gets a <code>.bak.&lt;timestamp&gt;</code> copy.</p>
+    </section>
+
+    <section class="doc-section" id="limitations">
+      <h2>Known Limitations</h2>
+      <ul>
+        <li><strong>Codex patch line numbers are hunk-relative, not absolute</strong>: Codex's <code>apply_patch</code> format doesn't include full file contents, so line-level blame on Codex-edited files is relative to the changed region.</li>
+        <li><strong>Merge commits aren't linked</strong>: <code>link-commit</code> skips commits with <code>parent_count &gt; 1</code>.</li>
+        <li><strong>AST covers 6 languages</strong>: TypeScript, JavaScript, Python, Go, Rust, Java. Other extensions fall back to whole-file nodes.</li>
+        <li><strong>Inline diffs render as text-based <code>&lt;pre&gt;</code> blocks</strong> (no Monaco / syntax highlighting yet).</li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+
+<!-- ─── Footer ─── -->
+<footer>
+  <div class="footer-left">
+    <div class="footer-logo">
+      <img src="favicon.svg" alt="minspect">
+    </div>
+    <span class="footer-copy">minspect &middot; MIT License &middot; Made by ivenlau</span>
+  </div>
+  <div class="footer-right">
+    <a href="https://github.com/ivenlau/minspect" target="_blank">GitHub</a>
+    <a href="https://www.npmjs.com/package/@ivenlau/minspect" target="_blank">npm</a>
+    <a href="docs.html">Docs</a>
+  </div>
+</footer>
+
+</body>
+</html>
