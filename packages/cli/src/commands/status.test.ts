@@ -84,15 +84,21 @@ describe('runStatus', () => {
     expect(text).toMatch(/minspect serve/);
   });
 
-  it('formatStatusReport output is plain text and compact (≤ 6 lines when running)', () => {
+  it('formatStatusReport output is plain text and compact (≤ 7 lines when running)', () => {
     const text = formatStatusReport({
       initialized: true,
       daemon: { state: 'running', port: 21477, pid: 42, spawnedBy: 'user' },
       queue: { queue: 0, poisoned: 0 },
       lastEventAgeMs: 2000,
       hooks: { claudeCode: true, openCode: false },
+      autostart: {
+        enabled: false,
+        unitPresent: false,
+        backend: 'launchd',
+        unitPath: '/tmp/x',
+      },
     });
-    expect(text.trim().split('\n').length).toBeLessThanOrEqual(6);
+    expect(text.trim().split('\n').length).toBeLessThanOrEqual(7);
     expect(text).toMatch(/http:\/\/127\.0\.0\.1:21477/);
     expect(text).toMatch(/last:\s+2s ago/);
   });
@@ -104,7 +110,84 @@ describe('runStatus', () => {
       queue: { queue: 0, poisoned: 0 },
       lastEventAgeMs: null,
       hooks: { claudeCode: true, openCode: false },
+      autostart: {
+        enabled: false,
+        unitPresent: false,
+        backend: 'launchd',
+        unitPath: '/tmp/x',
+      },
     });
     expect(text).toMatch(/spawned_by: hook/);
+  });
+
+  it('renders autostart line: enabled + unit present → ✓', () => {
+    const text = formatStatusReport({
+      initialized: true,
+      daemon: { state: 'none' },
+      queue: null,
+      lastEventAgeMs: null,
+      hooks: { claudeCode: false, openCode: false },
+      autostart: {
+        enabled: true,
+        unitPresent: true,
+        backend: 'launchd',
+        unitPath: '/tmp/com.ivenlau.minspect.plist',
+      },
+    });
+    expect(text).toMatch(/autostart:.*✓/);
+    expect(text).toMatch(/launchd/);
+  });
+
+  it('renders autostart line: enabled but unit missing → ⚠', () => {
+    const text = formatStatusReport({
+      initialized: true,
+      daemon: { state: 'none' },
+      queue: null,
+      lastEventAgeMs: null,
+      hooks: { claudeCode: false, openCode: false },
+      autostart: {
+        enabled: true,
+        unitPresent: false,
+        backend: 'systemd',
+        unitPath: '/tmp/missing.service',
+      },
+    });
+    expect(text).toMatch(/autostart:.*⚠/);
+    expect(text).toMatch(/missing\.service/);
+  });
+
+  it('renders autostart line: disabled → "disabled" with hint', () => {
+    const text = formatStatusReport({
+      initialized: true,
+      daemon: { state: 'none' },
+      queue: null,
+      lastEventAgeMs: null,
+      hooks: { claudeCode: false, openCode: false },
+      autostart: {
+        enabled: false,
+        unitPresent: false,
+        backend: 'systemd',
+        unitPath: '/tmp/x',
+      },
+    });
+    expect(text).toMatch(/autostart: disabled/);
+    expect(text).toMatch(/install-autostart/);
+  });
+
+  it('renders autostart line: unsupported platform → explicit message', () => {
+    const text = formatStatusReport({
+      initialized: true,
+      daemon: { state: 'none' },
+      queue: null,
+      lastEventAgeMs: null,
+      hooks: { claudeCode: false, openCode: false },
+      autostart: {
+        enabled: false,
+        unitPresent: false,
+        backend: 'unsupported',
+        unitPath: '',
+      },
+    });
+    expect(text).toMatch(/autostart: not supported/);
   });
 });

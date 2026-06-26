@@ -13,6 +13,18 @@ export interface MinspectConfig {
   // `minspect init` (card 44) because a silent background process would
   // surprise someone who just wanted to install hooks.
   auto_spawn_daemon?: boolean;
+
+  // When true, the daemon is registered to start automatically when the
+  // user logs in. Backed by an OS-level user-space primitive:
+  //   - macOS:    ~/Library/LaunchAgents/com.ivenlau.minspect.plist
+  //   - Linux:    ~/.config/systemd/user/minspect.service
+  //               (falls back to ~/.config/autostart/minspect.desktop if
+  //                systemd --user is unavailable)
+  //   - Windows:  Task Scheduler task "minspect daemon" (ONLOGON, RL LIMITED)
+  // Independent from auto_spawn_daemon (lazy hook spawn). Toggled by
+  // `minspect init` and the dedicated `install-autostart` / `uninstall-autostart`
+  // subcommands. Persisted to <state_dir>/config.json.
+  autostart?: boolean;
 }
 
 export function getConfigPath(stateRoot: string = getStateDir()): string {

@@ -49,11 +49,17 @@ describe('runInit', () => {
     expect(result.installed.openCode).toBe(true);
     expect(result.installed.postCommit).toBe(false); // not a git repo
     expect(result.autoSpawnEnabled).toBe(false); // conservative default under --yes
+    // autostart defaults to true under --yes (opposite of auto_spawn)
+    // — but `install-autostart` requires a real `node` and `minspect`
+    // bin to be resolvable; under this test's `--fake/minspect` setup
+    // the install will throw, leaving autostartEnabled unset. The
+    // config flag is still set explicitly.
+    expect(readConfig(root).auto_spawn_daemon).toBe(false);
+    // autostart flag is written regardless of platform-install success.
+    expect(typeof readConfig(root).autostart).toBe('boolean');
     // Files touched.
     expect(readFileSync(settingsPath, 'utf8')).toMatch(/__minspect_managed__/);
     expect(readFileSync(pluginPath, 'utf8')).toMatch(/minspect managed/);
-    // Config persisted.
-    expect(readConfig(root)).toEqual({ auto_spawn_daemon: false });
   });
 
   it('interactive mode respects user n answers', async () => {
@@ -78,7 +84,10 @@ describe('runInit', () => {
     expect(asked.length).toBeGreaterThan(0);
     expect(result.installed.claudeCode).toBe(false);
     expect(result.installed.openCode).toBe(false);
-    expect(readConfig(root)).toEqual({ auto_spawn_daemon: false });
+    // Both auto_spawn and autostart are now asked; with `no` answers
+    // the config records both as false.
+    expect(readConfig(root).auto_spawn_daemon).toBe(false);
+    expect(readConfig(root).autostart).toBe(false);
   });
 
   it('skips hook install for already-installed hooks', async () => {
@@ -169,6 +178,55 @@ describe('runInit', () => {
     });
     expect(autoSpawnAsks).toBe(0);
     expect(readConfig(root).auto_spawn_daemon).toBe(true);
+  });
+
+  it('persists autostart choice after first run; second run does not re-ask', async () => {
+    // First run: user says yes to autostart (default under --yes is
+    // also true, so this is the realistic path). We answer "no" to
+    // auto_spawn to keep the test focused on the autostart branch.
+    const asks: string[] = [];
+    await runInit({
+      stateRoot: root,
+      cwd,
+      settingsPath,
+      opencodePluginPath: pluginPath,
+      aiHistoryBin: '/fake/minspect',
+      detect: { claudeCodeInstalled: false, openCodeInstalled: false, codexSessions: false },
+      ask: async (q) => {
+        asks.push(q);
+        // Accept autostart prompt, decline auto_spawn.
+        if (/log in/i.test(q)) return true;
+        return false;
+      },
+      write: () => {
+        /* silence */
+      },
+      skipServe: true,
+    });
+    expect(asks.some((q) => /log in/i.test(q))).toBe(true);
+    expect(readConfig(root).autostart).toBe(true);
+    expect(readConfig(root).auto_spawn_daemon).toBe(false);
+
+    // Second run: autostart is already in config — no re-ask.
+    let autostartAsks = 0;
+    await runInit({
+      stateRoot: root,
+      cwd,
+      settingsPath,
+      opencodePluginPath: pluginPath,
+      aiHistoryBin: '/fake/minspect',
+      detect: { claudeCodeInstalled: false, openCodeInstalled: false, codexSessions: false },
+      ask: async (q) => {
+        if (/log in/i.test(q)) autostartAsks += 1;
+        return false;
+      },
+      write: () => {
+        /* silence */
+      },
+      skipServe: true,
+    });
+    expect(autostartAsks).toBe(0);
+    expect(readConfig(root).autostart).toBe(true);
   });
 
   it('handles --yes without any detected agent (noop happy path)', async () => {

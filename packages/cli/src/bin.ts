@@ -8,12 +8,17 @@ import { runCapture } from './commands/capture.js';
 import { formatDoctorReport, runDoctor } from './commands/doctor.js';
 import { runImportCodex, runImportCodexAll } from './commands/import-codex.js';
 import { runInit } from './commands/init.js';
+import { runInstallAutostart } from './commands/install-autostart.js';
 import { runInstallOpenCode } from './commands/install-opencode.js';
 import { runInstall } from './commands/install.js';
 import { runLinkCommit } from './commands/link-commit.js';
 import { runRevert } from './commands/revert.js';
 import { runServe, runStop } from './commands/serve.js';
 import { formatStatusReport, runStatus } from './commands/status.js';
+import {
+  formatUninstallAutostartReport,
+  runUninstallAutostart,
+} from './commands/uninstall-autostart.js';
 import { type UninstallAgent, formatUninstallReport, runUninstall } from './commands/uninstall.js';
 import { runVacuum } from './commands/vacuum.js';
 
@@ -163,7 +168,7 @@ program
   .command('uninstall')
   .description('Remove hooks written by install (dry-run by default)')
   .option('--agent <name>', 'claude-code | opencode (mutually exclusive with --all)')
-  .option('--all', 'remove every agent hook + post-commit in cwd + stop daemon')
+  .option('--all', 'remove every agent hook + post-commit in cwd + stop daemon + revoke autostart')
   .option('--purge', 'also delete DB, sessions, and queue under state dir')
   .option('--yes', 'actually write (default is dry-run)')
   .action(async (opts: { agent?: string; all?: boolean; purge?: boolean; yes?: boolean }) => {
@@ -183,6 +188,66 @@ program
       if (anyFailed) process.exit(2);
     } catch (err) {
       process.stderr.write(`minspect uninstall: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('install-autostart')
+  .description(
+    'Register the daemon to start automatically when the user logs in (macOS LaunchAgent / Linux systemd --user / Windows Task Scheduler)',
+  )
+  .option(
+    '--backend <name>',
+    'force a backend: launchd | systemd | xdg-autostart | scheduled-task (default: auto-detect from OS)',
+  )
+  .option('--dry-run', 'write nothing; show what would happen')
+  .action((opts: { backend?: string; dryRun?: boolean }) => {
+    try {
+      const r = runInstallAutostart({
+        backend: opts.backend as
+          | 'launchd'
+          | 'systemd'
+          | 'xdg-autostart'
+          | 'scheduled-task'
+          | undefined,
+        dryRun: opts.dryRun,
+      });
+      process.stdout.write(
+        `${r.enabled ? 'registered' : 'planned'}: ${r.backend} → ${r.unitPath}\n` +
+          `  started: ${r.started}\n` +
+          `  ${r.detail}\n`,
+      );
+    } catch (err) {
+      process.stderr.write(`minspect install-autostart: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('uninstall-autostart')
+  .description('Revoke the OS-level autostart registration (dry-run by default)')
+  .option(
+    '--backend <name>',
+    'force a backend: launchd | systemd | xdg-autostart | scheduled-task (default: auto-detect from OS)',
+  )
+  .option('--yes', 'actually write (default is dry-run)')
+  .action((opts: { backend?: string; yes?: boolean }) => {
+    try {
+      const r = runUninstallAutostart({
+        backend:
+          (opts.backend as
+            | 'launchd'
+            | 'systemd'
+            | 'xdg-autostart'
+            | 'scheduled-task'
+            | 'auto'
+            | undefined) ?? 'auto',
+        yes: opts.yes,
+      });
+      process.stdout.write(formatUninstallAutostartReport(r));
+    } catch (err) {
+      process.stderr.write(`minspect uninstall-autostart: ${(err as Error).message}\n`);
       process.exit(1);
     }
   });

@@ -1,7 +1,9 @@
 import { copyFileSync, existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { readConfig } from '../config.js';
 import { getStateDir } from '../paths.js';
+import { executeUninstallAutostart } from './install-autostart.js';
 import { BEGIN_MARKER as OPENCODE_BEGIN, END_MARKER as OPENCODE_END } from './install-opencode.js';
 import { MARKER as CLAUDE_MARKER } from './install.js';
 import { runStop } from './serve.js';
@@ -30,7 +32,13 @@ export interface UninstallOptions {
 }
 
 export interface UninstallStep {
-  kind: 'claude-code-settings' | 'opencode-plugin' | 'post-commit' | 'stop-daemon' | 'purge-state';
+  kind:
+    | 'claude-code-settings'
+    | 'opencode-plugin'
+    | 'post-commit'
+    | 'autostart'
+    | 'stop-daemon'
+    | 'purge-state';
   path?: string;
   detail?: string;
   // Result of executing — set when yes=true, undefined for dry-run.
@@ -270,6 +278,20 @@ function planPurgeState(stateRoot: string): UninstallStep {
   return step;
 }
 
+// Autostart plan/execute is delegated to `install-autostart.ts` so the
+// platform backend lives in one place. The plan step here is read-only:
+// we never spawn OS commands until `yes: true`.
+function planAutostartRemoval(stateRoot?: string): UninstallStep {
+  const cfg = readConfig(stateRoot);
+  const step: UninstallStep = {
+    kind: 'autostart',
+    detail: cfg.autostart
+      ? 'revoke OS-level autostart registration (launchd / systemd --user / Task Scheduler)'
+      : 'skip (autostart not enabled in config)',
+  };
+  return step;
+}
+
 function executePurgeState(step: UninstallStep): void {
   if (!step.path) {
     step.result = 'skipped';
@@ -327,6 +349,12 @@ export function planUninstall(options: UninstallOptions): UninstallStep[] {
     if (isGitRepo(repo)) {
       steps.push(planPostCommitRemoval(repo));
     }
+    // Revoke the OS-level autostart registration before stopping the
+    // daemon so the unit file is gone by the time we shut down. If the
+    // platform is unsupported, planAutostartRemoval still returns a
+    // step — it just reports "not installed / unsupported" and the
+    // executor marks it skipped.
+    steps.push(planAutostartRemoval(options.stateRoot));
     steps.push({ kind: 'stop-daemon' });
   }
   if (options.purge) {
@@ -354,6 +382,25 @@ export async function runUninstall(options: UninstallOptions): Promise<Uninstall
       case 'post-commit':
         executePostCommitRemoval(step);
         break;
+      case 'autostart': {
+        // Only attempt the OS-side removal if the user actually
+        // enabled autostart. The plan step encodes that as a
+        // "skip (autostart not enabled in config)" detail; we still
+        // proceed if the platform has a unit file regardless of the
+        // config (defensive: config could be deleted out from under us).
+        try {
+          const r = executeUninstallAutostart({ stateRoot: options.stateRoot });
+          step.result = r.removed ? 'removed' : 'skipped';
+          step.detail = r.removed
+            ? `${r.backend} revoked at ${r.unitPath}`
+            : `${r.backend} was not installed`;
+          step.path = r.unitPath;
+        } catch (e) {
+          step.result = 'failed';
+          step.error = (e as Error).message;
+        }
+        break;
+      }
       case 'stop-daemon': {
         try {
           const stopped = await runStop({ stateRoot: options.stateRoot });

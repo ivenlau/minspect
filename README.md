@@ -64,8 +64,10 @@ minspect init
 That detects which agents you have, interactively installs their hooks
 (Claude Code / OpenCode), optionally imports the last 30 days of Codex
 sessions, installs the post-commit hook if you're in a git repo, asks once
-whether hooks should auto-start the daemon, then starts `serve` and opens
-the UI on `http://127.0.0.1:21477`. Pass `--yes` for non-interactive.
+whether hooks should auto-start the daemon, asks once whether to register
+the daemon as a login item (so it survives `init`'s shell and comes up
+automatically after every login), then starts `serve` and opens the UI on
+`http://127.0.0.1:21477`. Pass `--yes` for non-interactive.
 
 Re-running `init` is safe — anything already wired is skipped.
 
@@ -94,10 +96,27 @@ minspect                          # default: status (daemon, queue, last event, 
 minspect init                     # one-shot setup (re-runnable)
 minspect serve                    # start the daemon + UI (port 21477)
 minspect stop                     # stop the daemon
-minspect doctor                   # 8-point diagnostic
+minspect doctor                   # 9-point diagnostic (incl. autostart)
+minspect install-autostart        # register daemon to start on login (macOS / Linux / Windows)
+minspect uninstall-autostart      # revoke the login-item registration (dry-run by default)
 minspect uninstall --all --yes    # symmetric to install (--purge also wipes state)
 minspect import-codex --latest    # manually import a Codex rollout
 ```
+
+### Autostart vs `auto_spawn_daemon`
+
+Two related-but-independent switches control when the daemon is running:
+
+| Switch | When the daemon comes up | Where it lives |
+|---|---|---|
+| `autostart` (config) | After you log in, regardless of AI activity | OS-level login item — LaunchAgent (macOS) / systemd --user (Linux) / Task Scheduler (Windows) |
+| `auto_spawn_daemon` (config) | The first time a hook fires, if no daemon is running | In-process lazy spawn in `transport.ts` |
+
+`init` registers `autostart` by default; flip it any time with
+`minspect install-autostart` / `minspect uninstall-autostart`. Both
+flags are independent — you can have one, both, or neither. With
+neither, the daemon only runs while you're inside a `minspect serve`
+shell.
 
 ## Reverting AI changes
 

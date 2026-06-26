@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { readConfig } from '../config.js';
 import { getStateDir } from '../paths.js';
+import {
+  launchdPlistPath,
+  scheduledTaskName,
+  systemdUnitPath,
+  xdgAutostartDesktopPath,
+} from './autostart/index.js';
 import { BEGIN_MARKER as OPENCODE_BEGIN } from './install-opencode.js';
 import { MARKER as CLAUDE_MARKER } from './install.js';
 import { DEFAULT_PORT } from './serve.js';
@@ -30,6 +37,12 @@ export interface StatusReport {
   hooks: {
     claudeCode: boolean;
     openCode: boolean;
+  };
+  autostart: {
+    enabled: boolean; // matches config.autostart
+    unitPresent: boolean; // file/task actually exists
+    backend: string; // 'launchd' | 'systemd' | 'xdg-autostart' | 'scheduled-task' | 'unsupported'
+    unitPath: string;
   };
 }
 
@@ -79,6 +92,56 @@ function hookInstalledOpenCode(pluginPath: string): boolean {
   }
 }
 
+interface AutostartStatus {
+  enabled: boolean;
+  unitPresent: boolean;
+  backend: string;
+  unitPath: string;
+}
+
+function computeAutostartStatus(stateRoot: string): AutostartStatus {
+  const cfg = readConfig(stateRoot);
+  const enabled = cfg.autostart === true;
+  switch (process.platform) {
+    case 'darwin': {
+      const unitPath = launchdPlistPath();
+      return {
+        enabled,
+        unitPresent: existsSync(unitPath),
+        backend: 'launchd',
+        unitPath,
+      };
+    }
+    case 'linux': {
+      // systemd is the primary path. If the systemd unit is missing
+      // but a xdg desktop file is present, report the latter so the
+      // user isn't told "broken" on distros without systemd.
+      const unitPath = systemdUnitPath();
+      if (existsSync(unitPath)) {
+        return { enabled, unitPresent: true, backend: 'systemd', unitPath };
+      }
+      const xdgPath = xdgAutostartDesktopPath();
+      if (existsSync(xdgPath)) {
+        return { enabled, unitPresent: true, backend: 'xdg-autostart', unitPath: xdgPath };
+      }
+      return { enabled, unitPresent: false, backend: 'systemd', unitPath };
+    }
+    case 'win32': {
+      // We don't shell out to schtasks here — status must stay cheap.
+      // The presence bit stays false unless we can derive it from
+      // config; users can run `minspect doctor` for the deeper check.
+      return {
+        enabled,
+        unitPresent: enabled, // optimistic; doctor uses schtasks
+        backend: 'scheduled-task',
+        unitPath: `\\${scheduledTaskName()}`,
+      };
+    }
+    default:
+      return { enabled, unitPresent: false, backend: 'unsupported', unitPath: '' };
+  }
+}
+
 export async function runStatus(options: StatusOptions = {}): Promise<StatusReport> {
   const stateRoot = options.stateRoot ?? getStateDir();
   const settingsPath = options.settingsPath ?? defaultClaudeSettings();
@@ -90,6 +153,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<StatusRepo
   };
 
   const statePath = join(stateRoot, 'state.json');
+  const autostart = computeAutostartStatus(stateRoot);
   if (!existsSync(statePath)) {
     return {
       initialized: hooks.claudeCode || hooks.openCode,
@@ -97,6 +161,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<StatusRepo
       queue: null,
       lastEventAgeMs: null,
       hooks,
+      autostart,
     };
   }
 
@@ -125,6 +190,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<StatusRepo
       queue: null,
       lastEventAgeMs: null,
       hooks,
+      autostart,
     };
   }
 
@@ -150,6 +216,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<StatusRepo
     queue,
     lastEventAgeMs,
     hooks,
+    autostart,
   };
 }
 
@@ -201,5 +268,13 @@ export function formatStatusReport(report: StatusReport): string {
   const claudeSig = report.hooks.claudeCode ? '✓' : '✗';
   const opencodeSig = report.hooks.openCode ? '✓' : '✗';
   lines.push(`hooks:    claude-code ${claudeSig}   opencode ${opencodeSig}`);
+  if (report.autostart.backend === 'unsupported') {
+    lines.push(`autostart: not supported on ${process.platform}`);
+  } else if (report.autostart.enabled) {
+    const sig = report.autostart.unitPresent ? '✓' : '⚠';
+    lines.push(`autostart: ${sig}  ${report.autostart.backend} (${report.autostart.unitPath})`);
+  } else {
+    lines.push('autostart: disabled (run `minspect install-autostart` to enable)');
+  }
   return `${lines.join('\n')}\n`;
 }

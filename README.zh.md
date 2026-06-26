@@ -60,7 +60,7 @@ pnpm -C packages/cli link --global
 minspect init
 ```
 
-它会检测你装了哪些代理、交互式装对应 hook（Claude Code / OpenCode）、按需导入最近 30 天的 Codex 会话、在 git 仓里装 post-commit hook、首次询问是否允许 hook 自动启动守护进程，最后启动 `serve` 并在 `http://127.0.0.1:21477` 打开 UI。加 `--yes` 走非交互。
+它会检测你装了哪些代理、交互式装对应 hook（Claude Code / OpenCode）、按需导入最近 30 天的 Codex 会话、在 git 仓里装 post-commit hook、首次询问是否允许 hook 自动启动守护进程、首次询问是否把守护进程注册为登录启动项（让 init 退出后 daemon 仍能继续跑、每次登录后自动起），最后启动 `serve` 并在 `http://127.0.0.1:21477` 打开 UI。加 `--yes` 走非交互。
 
 重复运行 `init` 是安全的——已装项会自动跳过。
 
@@ -89,10 +89,25 @@ minspect                          # 无参默认 status（守护进程 / 队列 
 minspect init                     # 一次性安装（可重复运行）
 minspect serve                    # 启动守护进程 + UI（端口 21477）
 minspect stop                     # 停止守护进程
-minspect doctor                   # 8 项诊断
+minspect doctor                   # 9 项诊断（含 autostart）
+minspect install-autostart        # 注册为登录启动项（macOS / Linux / Windows）
+minspect uninstall-autostart      # 撤销登录启动项注册（默认 dry-run）
 minspect uninstall --all --yes    # 对称 install（加 --purge 清状态数据）
 minspect import-codex --latest    # 手动导入一次 Codex 会话
 ```
+
+### Autostart 与 `auto_spawn_daemon` 的区别
+
+两个相关但独立的开关控制 daemon 何时在跑：
+
+| 开关 | daemon 何时起来 | 落点 |
+|---|---|---|
+| `autostart`（config） | 你登录之后，与 AI 是否活跃无关 | OS 级登录项 —— macOS LaunchAgent / Linux systemd --user / Windows Task Scheduler |
+| `auto_spawn_daemon`（config） | 第一次 hook 触发时，daemon 不在就拉起 | `transport.ts` 里的进程内懒启动 |
+
+`init` 默认会注册 `autostart`；随时可以用 `minspect install-autostart` /
+`minspect uninstall-autostart` 切换。两个 flag 互相独立 —— 你可以只开一个、
+都开、都不开。两个都不开时，daemon 只在 `minspect serve` 前台 shell 里跑。
 
 ## 回滚 AI 改动
 

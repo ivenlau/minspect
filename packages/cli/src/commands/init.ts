@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline/promises';
 import { readConfig, writeConfig } from '../config.js';
 import { runDoctor } from './doctor.js';
 import { runImportCodexAll } from './import-codex.js';
+import { runInstallAutostart } from './install-autostart.js';
 import { runInstallOpenCode } from './install-opencode.js';
 import { installPostCommitHook } from './install-post-commit-hook.js';
 import { runInstall } from './install.js';
@@ -60,6 +61,7 @@ export interface InitResult {
   };
   importedCodex: number; // files imported, 0 if skipped
   autoSpawnEnabled: boolean;
+  autostartEnabled: boolean;
   daemonStarted: boolean;
   port?: number;
 }
@@ -120,6 +122,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     installed: { claudeCode: false, openCode: false, postCommit: false },
     importedCodex: 0,
     autoSpawnEnabled: false,
+    autostartEnabled: false,
     daemonStarted: false,
   };
 
@@ -222,6 +225,39 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   } else {
     result.autoSpawnEnabled = cfg.auto_spawn_daemon === true;
     write(`  auto_spawn_daemon: ${cfg.auto_spawn_daemon} (unchanged)`);
+  }
+
+  // --- OS-level autostart (login item) -----------------------------------
+  // Independent from auto_spawn_daemon: this one writes a per-user
+  // LaunchAgent / systemd --user unit / Task Scheduler task so the
+  // daemon comes up after the user logs in, without any agent having to
+  // fire first. We default `--yes` to true (opposite of auto_spawn) —
+  // the registration is visible to the user (launchctl list / systemctl
+  // --user list / Task Scheduler UI) and is reversible via
+  // `minspect uninstall-autostart` or `uninstall --all`.
+  if (cfg.autostart === undefined) {
+    const enable = options.yes
+      ? true
+      : await ask('Start the daemon automatically when you log in? (recommended)', true);
+    if (enable) {
+      try {
+        const r = runInstallAutostart({
+          stateRoot: options.stateRoot,
+          minspectBinPath: options.aiHistoryBin,
+          persist: false, // we just wrote the explicit flag below
+        });
+        result.autostartEnabled = true;
+        write(`  autostart: ${r.backend} → ${r.unitPath} (started: ${r.started})`);
+      } catch (e) {
+        write(`  autostart skipped: ${(e as Error).message}`);
+      }
+    } else {
+      write('  autostart: disabled');
+    }
+    writeConfig({ ...readConfig(options.stateRoot), autostart: enable }, options.stateRoot);
+  } else {
+    result.autostartEnabled = cfg.autostart === true;
+    write(`  autostart: ${cfg.autostart} (unchanged)`);
   }
 
   // --- Start the daemon ---------------------------------------------------

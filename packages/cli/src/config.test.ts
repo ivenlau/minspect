@@ -27,6 +27,12 @@ describe('config', () => {
     expect(readFileSync(getConfigPath(root), 'utf8')).toMatch(/auto_spawn_daemon/);
   });
 
+  it('round-trips autostart independently from auto_spawn_daemon', () => {
+    writeConfig({ auto_spawn_daemon: false, autostart: true }, root);
+    expect(readConfig(root)).toEqual({ auto_spawn_daemon: false, autostart: true });
+    expect(readFileSync(getConfigPath(root), 'utf8')).toMatch(/autostart/);
+  });
+
   it('returns empty object on malformed JSON', () => {
     writeFileSync(getConfigPath(root), '{ not valid json');
     expect(readConfig(root)).toEqual({});

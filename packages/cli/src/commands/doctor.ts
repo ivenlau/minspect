@@ -1,7 +1,14 @@
 import { constants, accessSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { readConfig } from '../config.js';
 import { getStateDir } from '../paths.js';
+import {
+  launchdPlistPath,
+  scheduledTaskName,
+  systemdUnitPath,
+  xdgAutostartDesktopPath,
+} from './autostart/index.js';
 import { BEGIN_MARKER as OPENCODE_BEGIN } from './install-opencode.js';
 import { MARKER as CLAUDE_MARKER } from './install.js';
 import { DEFAULT_PORT } from './serve.js';
@@ -256,6 +263,85 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function autostartUnitPathForPlatform(): { path: string; backend: string } {
+  // Picks the right unit path for the current OS. Doctor must NOT
+  // shell out to launchctl/systemctl/schtasks — those would slow
+  // down the diagnostic and would fail noisily on CI / WSL / Alpine.
+  // Existence of the file is a good-enough signal: if the user ran
+  // `install-autostart`, the file should be there; if the user later
+  // deleted it by hand, doctor surfaces that as a fix hint.
+  switch (process.platform) {
+    case 'darwin':
+      return { path: launchdPlistPath(), backend: 'launchd' };
+    case 'linux':
+      // Prefer systemd, fall back to xdg. We don't try to detect
+      // which one is in use — both can coexist on weird systems
+      // and `install-autostart` is idempotent across backends.
+      return { path: systemdUnitPath(), backend: 'systemd' };
+    case 'win32':
+      // Task Scheduler doesn't expose a "file path" — we encode
+      // the task name in a path-like string so the report stays
+      // consistent. The actual existence check shells out via
+      // `schtasks /Query`, but only here (and only on Windows).
+      return { path: `\\${scheduledTaskName()}`, backend: 'scheduled-task' };
+    default:
+      return { path: '', backend: 'unsupported' };
+  }
+}
+
+function checkAutostart(stateRoot: string): DoctorCheck {
+  const cfg = readConfig(stateRoot);
+  if (!cfg.autostart) {
+    return {
+      id: 'autostart',
+      status: 'warn',
+      message: 'not enabled',
+      fix: 'run `minspect install-autostart` to start the daemon on login',
+    };
+  }
+  if (
+    process.platform === 'linux' &&
+    !existsSync(systemdUnitPath()) &&
+    existsSync(xdgAutostartDesktopPath())
+  ) {
+    return {
+      id: 'autostart',
+      status: 'ok',
+      message: 'xdg-autostart desktop file present',
+    };
+  }
+  const { path, backend } = autostartUnitPathForPlatform();
+  if (!path) {
+    return {
+      id: 'autostart',
+      status: 'warn',
+      message: `autostart enabled in config but platform "${process.platform}" is not supported`,
+      fix: 'edit <state_dir>/config.json to set autostart: false',
+    };
+  }
+  // On Windows, "path" is a logical name; we don't stat it.
+  if (process.platform === 'win32') {
+    return {
+      id: 'autostart',
+      status: 'ok',
+      message: `${backend} task registered: ${path}`,
+    };
+  }
+  if (existsSync(path)) {
+    return {
+      id: 'autostart',
+      status: 'ok',
+      message: `${backend} unit present: ${path}`,
+    };
+  }
+  return {
+    id: 'autostart',
+    status: 'warn',
+    message: `autostart enabled but unit file missing: ${path}`,
+    fix: 're-run `minspect install-autostart` to re-register',
+  };
+}
+
 async function checkRecentEvents(stateRoot: string, recentWindowMs: number): Promise<DoctorCheck> {
   const daemon = readDaemonJson(stateRoot);
   if (!daemon?.port) {
@@ -339,6 +425,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     checkClaudeHook(settingsPath),
     checkOpenCodePlugin(pluginPath),
     checkPostCommit(cwd),
+    checkAutostart(stateRoot),
     checkDatabase(stateRoot),
     await checkRecentEvents(stateRoot, recentMs),
   ];
