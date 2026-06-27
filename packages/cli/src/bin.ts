@@ -14,6 +14,7 @@ import { runInstall } from './commands/install.js';
 import { runLinkCommit } from './commands/link-commit.js';
 import { runRevert } from './commands/revert.js';
 import { runServe, runStop } from './commands/serve.js';
+import { runStart } from './commands/start.js';
 import { formatStatusReport, runStatus } from './commands/status.js';
 import {
   formatUninstallAutostartReport,
@@ -127,6 +128,50 @@ program
       noOpen: opts.open === false,
       quiet: opts.quiet,
     });
+  });
+
+program
+  .command('start')
+  .description(
+    'Start the daemon in the background (no hooks, no autostart, no UI). Use when the daemon crashed and you just need it back up.',
+  )
+  .option('--open', 'open the UI in the default browser after starting')
+  .action(async (opts: { open?: boolean }) => {
+    try {
+      const r = await runStart({});
+      if (r.daemonStarted && r.port !== undefined) {
+        // runStart returns port but not pid; re-probe once for the
+        // live daemon so we can show the user which process is theirs.
+        const { findRunningDaemon } = await import('./commands/serve.js');
+        const live = await findRunningDaemon();
+        const pid = live?.pid ?? '?';
+        if (r.spawned) {
+          process.stdout.write(`daemon: http://127.0.0.1:${r.port} (pid ${pid})\n`);
+        } else {
+          process.stdout.write(
+            `daemon already running on http://127.0.0.1:${r.port} (pid ${pid})\n`,
+          );
+        }
+        if (opts.open) {
+          const { openBrowser } = await import('./commands/serve.js');
+          await openBrowser(`http://127.0.0.1:${r.port}`);
+        }
+        return;
+      }
+      if (r.spawnFailed) {
+        process.stderr.write(
+          "couldn't spawn daemon; run `minspect serve` manually to see errors\n",
+        );
+      } else {
+        process.stderr.write(
+          'daemon did not come up within 5s; run `minspect serve` manually to see errors\n',
+        );
+      }
+      process.exit(1);
+    } catch (err) {
+      process.stderr.write(`minspect start: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
   });
 
 program
