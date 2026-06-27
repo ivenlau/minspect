@@ -14,7 +14,7 @@
 
 ## 状态
 
-已在 Windows、macOS、Linux（Node 20+）上验证通过。工作区 351 个测试，lint 与 build 全绿。
+已在 Windows、macOS、Linux（Node 20+）上验证通过。工作区 423 个测试，lint 与 build 全绿。
 
 | 代理        | 接入方式                               | 状态                                       |
 | ----------- | -------------------------------------- | ------------------------------------------ |
@@ -86,6 +86,7 @@ minspect init
 
 ```bash
 minspect                          # 无参默认 status（守护进程 / 队列 / 最近事件 / hook）
+minspect start                    # 后台启动守护进程（不装 hook、不开 UI）。daemon 挂了想拉起来用它
 minspect init                     # 一次性安装（可重复运行）
 minspect serve                    # 启动守护进程 + UI（端口 21477）
 minspect stop                     # 停止守护进程
@@ -102,7 +103,7 @@ minspect import-codex --latest    # 手动导入一次 Codex 会话
 
 | 开关 | daemon 何时起来 | 落点 |
 |---|---|---|
-| `autostart`（config） | 你登录之后，与 AI 是否活跃无关 | OS 级登录项 —— macOS LaunchAgent / Linux systemd --user / Windows Task Scheduler |
+| `autostart`（config） | 你登录之后，与 AI 是否活跃无关 | OS 级登录项 —— macOS LaunchAgent / Linux systemd --user / Windows HKCU Run key |
 | `auto_spawn_daemon`（config） | 第一次 hook 触发时，daemon 不在就拉起 | `transport.ts` 里的进程内懒启动 |
 
 `init` 默认会注册 `autostart`；随时可以用 `minspect install-autostart` /
@@ -189,8 +190,9 @@ packages/
 ├── core/                 — 事件 schema（zod）、DB schema、migrations、git 辅助
 ├── collector/            — Fastify 服务、SQLite 存储、追溯 + AST 索引器、
 │                           LLM explainer（可选）、Claude-Code transcript 解析
-├── cli/                  — `minspect` 二进制：init、status、serve、stop、doctor、
+├── cli/                  — `minspect` 二进制：init、status、serve、start、stop、doctor、
 │                           capture、capture-opencode、install、uninstall、
+│                           install-autostart、uninstall-autostart、
 │                           import-codex、link-commit、revert、vacuum
 ├── ui/                   — React + Vite SPA（深/浅色主题、EN/中 i18n），
 │                           构建产物打包进 collector
@@ -205,7 +207,7 @@ packages/
 
 ```bash
 pnpm build      # 全包 tsc
-pnpm test       # 全包 vitest（约 351 个测试）
+pnpm test       # 全包 vitest（约 423 个测试）
 pnpm lint       # biome check .
 pnpm format     # biome format --write .
 ```

@@ -14,7 +14,7 @@ Everything is local. No cloud, no account, no telemetry. Data lives in a single 
 
 ## Status
 
-Working on Windows, macOS, and Linux with Node 20+. 351 tests across the workspace, lint + build clean.
+Working on Windows, macOS, and Linux with Node 20+. 423 tests across the workspace, lint + build clean.
 
 | Agent       | Method                                 | Status                                                   |
 | ----------- | -------------------------------------- | -------------------------------------------------------- |
@@ -93,6 +93,7 @@ In the web UI:
 
 ```bash
 minspect                          # default: status (daemon, queue, last event, hooks)
+minspect start                    # start the daemon in the background (no hooks, no UI). Use when the daemon crashed and you just need it back up.
 minspect init                     # one-shot setup (re-runnable)
 minspect serve                    # start the daemon + UI (port 21477)
 minspect stop                     # stop the daemon
@@ -109,7 +110,7 @@ Two related-but-independent switches control when the daemon is running:
 
 | Switch | When the daemon comes up | Where it lives |
 |---|---|---|
-| `autostart` (config) | After you log in, regardless of AI activity | OS-level login item — LaunchAgent (macOS) / systemd --user (Linux) / Task Scheduler (Windows) |
+| `autostart` (config) | After you log in, regardless of AI activity | OS-level login item — LaunchAgent (macOS) / systemd --user (Linux) / HKCU Run key (Windows) |
 | `auto_spawn_daemon` (config) | The first time a hook fires, if no daemon is running | In-process lazy spawn in `transport.ts` |
 
 `init` registers `autostart` by default; flip it any time with
@@ -199,8 +200,9 @@ packages/
 ├── core/                 — Event schema (zod), DB schema, migrations, git helpers
 ├── collector/            — Fastify server, SQLite store, blame + AST indexers,
 │                           LLM explainer (opt-in), Claude-Code transcript parser
-├── cli/                  — `minspect` binary: init, status, serve, stop, doctor,
+├── cli/                  — `minspect` binary: init, status, serve, start, stop, doctor,
 │                           capture, capture-opencode, install, uninstall,
+│                           install-autostart, uninstall-autostart,
 │                           import-codex, link-commit, revert, vacuum
 ├── ui/                   — React + Vite SPA (dark/light theme, EN/zh i18n);
 │                           built output bundled into the collector
@@ -215,7 +217,7 @@ packages/
 
 ```bash
 pnpm build      # tsc across all packages
-pnpm test       # vitest across all packages (~351 tests)
+pnpm test       # vitest across all packages (~423 tests)
 pnpm lint       # biome check .
 pnpm format     # biome format --write .
 ```
