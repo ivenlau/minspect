@@ -20,6 +20,27 @@ vi.mock('node:child_process', async () => {
 });
 const execFileSyncMock = execFileSync as unknown as ReturnType<typeof vi.fn>;
 
+// Capture the original platform so per-test overrides can be reverted.
+// `install-autostart.test.ts` uses the same trick; the tests in this
+// file were written on Windows and assume the autostart install hits
+// `reg add` / `launchctl` / `systemctl` (all of which the mock throws
+// on). On a Linux CI runner without systemd, init falls back to
+// xdg-autostart, which writes a .desktop file via writeFileSync and
+// does NOT call execFileSync at all — so the mock would let the
+// install "succeed" and the failure-mode tests below would flip.
+// The tests that need a deterministic install failure force a
+// platform via setPlatform(); the success-path tests can keep the
+// real platform because their assertions match the xdg fallback too.
+const ORIGINAL_PLATFORM = process.platform;
+
+function setPlatform(p: NodeJS.Platform): void {
+  Object.defineProperty(process, 'platform', { value: p, configurable: true });
+}
+
+function resetPlatform(): void {
+  Object.defineProperty(process, 'platform', { value: ORIGINAL_PLATFORM, configurable: true });
+}
+
 // All prompts get wired to a deterministic `ask` function so we never hit
 // real stdin. Skip `serve` because bringing up the full collector mid-test
 // is expensive and orthogonal to what we're asserting here — the tests in
@@ -50,6 +71,7 @@ describe('runInit', () => {
     });
   });
   afterEach(() => {
+    resetPlatform();
     try {
       rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     } catch {
@@ -255,6 +277,14 @@ describe('runInit', () => {
   });
 
   it('records autostart=false when install throws (does not lie about success)', async () => {
+    // Force a platform whose install path goes through execFileSync
+    // (win32 → `reg add`), so the mock below actually intercepts the
+    // install. On Linux without systemd init would fall back to
+    // xdg-autostart, which writes a .desktop file via writeFileSync
+    // and never reaches the execFileSync mock — making the install
+    // "succeed" and flipping this assertion. See the comment on
+    // ORIGINAL_PLATFORM above.
+    setPlatform('win32');
     // Force the install to fail by making the `reg add` call throw
     // (mimics a permission error or a locked registry hive). The
     // previous shape wrote `autostart: true` even on failure, which
