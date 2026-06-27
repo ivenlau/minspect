@@ -70,7 +70,7 @@ describe('install-autostart', () => {
         return Buffer.from('com.ivenlau.minspect\t501\t...\n');
       if (cmd === 'systemctl' && args[0] === '--user' && args[1] === 'is-active')
         return Buffer.from('active\n');
-      if (cmd === 'schtasks' && args[0] === '/Query') return Buffer.from('Success\n');
+      if (cmd === 'reg' && args[0] === 'query') return Buffer.from('');
       if (cmd === 'which' || cmd === 'where') return Buffer.from('/usr/bin/node\n');
       return Buffer.from('');
     });
@@ -237,7 +237,7 @@ describe('install-autostart', () => {
     expect(body).toContain('X-GNOME-Autostart-enabled=true');
   });
 
-  it('Windows: registers a Task Scheduler task via schtasks /Create', () => {
+  it('Windows: writes an HKCU\\...\\Run registry value via reg add', () => {
     setPlatform('win32');
     const r = runInstallAutostart({
       stateRoot: root,
@@ -245,16 +245,33 @@ describe('install-autostart', () => {
       minspectBinPath: 'C:\\m.js',
     });
     expect(r.backend).toBe('scheduled-task');
-    expect(r.unitPath).toBe(`\\${scheduledTaskName()}`);
-    const calls = execFileSyncMock.mock.calls.filter((c) => c[0] === 'schtasks');
+    // The "unit path" is the registry value name, not a file path —
+    // exposed that way so status/doctor can render it without
+    // platform special-casing.
+    expect(r.unitPath).toBe(
+      `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\${scheduledTaskName()}`,
+    );
+    expect(scheduledTaskName()).toBe('minspect-daemon');
+    // The "started" probe should see the value as present.
+    expect(r.started).toBe(true);
+    const calls = execFileSyncMock.mock.calls.filter((c) => c[0] === 'reg');
     expect(calls.length).toBeGreaterThan(0);
-    const createCall = calls.find((c) => (c[1] as string[])[0] === '/Create');
-    expect(createCall).toBeDefined();
-    const args = createCall?.[1] as string[];
-    expect(args).toContain('/SC');
-    expect(args).toContain('ONLOGON');
-    expect(args).toContain('/RL');
-    expect(args).toContain('LIMITED');
+    const addCall = calls.find((c) => (c[1] as string[])[0] === 'add');
+    expect(addCall).toBeDefined();
+    const args = addCall?.[1] as string[];
+    expect(args[0]).toBe('add');
+    expect(args[1]).toBe('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run');
+    expect(args).toContain('/v');
+    expect(args).toContain('minspect-daemon');
+    expect(args).toContain('/t');
+    expect(args).toContain('REG_SZ');
+    expect(args).toContain('/d');
+    expect(args).toContain('/f');
+    // The /d value is the escaped, fully-quoted command line.
+    const dIdx = args.indexOf('/d');
+    expect(args[dIdx + 1]).toContain('C:\\\\n.exe');
+    expect(args[dIdx + 1]).toContain('C:\\\\m.js');
+    expect(args[dIdx + 1]).toContain('serve --quiet');
   });
 
   it('planUninstallAutostart reports installed state without side effects', () => {

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -127,15 +128,30 @@ function computeAutostartStatus(stateRoot: string): AutostartStatus {
       return { enabled, unitPresent: false, backend: 'systemd', unitPath };
     }
     case 'win32': {
-      // We don't shell out to schtasks here — status must stay cheap.
-      // The presence bit stays false unless we can derive it from
-      // config; users can run `minspect doctor` for the deeper check.
-      return {
-        enabled,
-        unitPresent: enabled, // optimistic; doctor uses schtasks
-        backend: 'scheduled-task',
-        unitPath: `\\${scheduledTaskName()}`,
-      };
+      // Actually probe the HKCU Run key value. status was previously
+      // optimistic — it reported `unitPresent: enabled` without ever
+      // shelling out, so a Windows install that failed silently (e.g.
+      // reg.exe permission error) showed `autostart: ✓` forever. The
+      // probe is one reg.exe call (~10ms) and matches what doctor does,
+      // so the two views stay in sync.
+      const unitPath = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\${scheduledTaskName()}`;
+      let unitPresent = false;
+      try {
+        execFileSync(
+          'reg',
+          [
+            'query',
+            'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+            '/v',
+            scheduledTaskName(),
+          ],
+          { stdio: ['ignore', 'ignore', 'ignore'] },
+        );
+        unitPresent = true;
+      } catch {
+        unitPresent = false;
+      }
+      return { enabled, unitPresent, backend: 'scheduled-task', unitPath };
     }
     default:
       return { enabled, unitPresent: false, backend: 'unsupported', unitPath: '' };

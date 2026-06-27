@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { constants, accessSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -264,12 +265,12 @@ function formatBytes(n: number): string {
 }
 
 function autostartUnitPathForPlatform(): { path: string; backend: string } {
-  // Picks the right unit path for the current OS. Doctor must NOT
-  // shell out to launchctl/systemctl/schtasks — those would slow
-  // down the diagnostic and would fail noisily on CI / WSL / Alpine.
-  // Existence of the file is a good-enough signal: if the user ran
-  // `install-autostart`, the file should be there; if the user later
-  // deleted it by hand, doctor surfaces that as a fix hint.
+  // Picks the right unit path for the current OS. On macOS / Linux we
+  // can stat a file cheaply; on Windows the autostart is the HKCU Run
+  // key value (no on-disk file) so the path we report is a logical
+  // registry location and the actual existence check is performed via
+  // `reg query` further down. That probe is the only OS call we make
+  // here, and only on Windows.
   switch (process.platform) {
     case 'darwin':
       return { path: launchdPlistPath(), backend: 'launchd' };
@@ -279,11 +280,10 @@ function autostartUnitPathForPlatform(): { path: string; backend: string } {
       // and `install-autostart` is idempotent across backends.
       return { path: systemdUnitPath(), backend: 'systemd' };
     case 'win32':
-      // Task Scheduler doesn't expose a "file path" — we encode
-      // the task name in a path-like string so the report stays
-      // consistent. The actual existence check shells out via
-      // `schtasks /Query`, but only here (and only on Windows).
-      return { path: `\\${scheduledTaskName()}`, backend: 'scheduled-task' };
+      return {
+        path: `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\${scheduledTaskName()}`,
+        backend: 'scheduled-task',
+      };
     default:
       return { path: '', backend: 'unsupported' };
   }
@@ -319,12 +319,35 @@ function checkAutostart(stateRoot: string): DoctorCheck {
       fix: 'edit <state_dir>/config.json to set autostart: false',
     };
   }
-  // On Windows, "path" is a logical name; we don't stat it.
+  // Windows: actually probe the HKCU Run key value. Previously this
+  // branch returned ok without shelling out, which let a failed
+  // install report "ok" forever. Now we match what status does, so
+  // the two views agree.
   if (process.platform === 'win32') {
+    const taskName = scheduledTaskName();
+    let present = false;
+    try {
+      execFileSync(
+        'reg',
+        ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', taskName],
+        { stdio: ['ignore', 'ignore', 'ignore'] },
+      );
+      present = true;
+    } catch {
+      present = false;
+    }
+    if (present) {
+      return {
+        id: 'autostart',
+        status: 'ok',
+        message: `${backend} value registered: ${path}`,
+      };
+    }
     return {
       id: 'autostart',
-      status: 'ok',
-      message: `${backend} task registered: ${path}`,
+      status: 'warn',
+      message: `autostart enabled but registry value missing: ${path}`,
+      fix: 're-run `minspect install-autostart` to re-register',
     };
   }
   if (existsSync(path)) {

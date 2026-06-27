@@ -96,6 +96,63 @@ function defaultWrite(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
+// Shared detach-spawn block used by both `minspect init` (end of setup)
+// and `minspect start` (standalone daemon restart). The `init` flow calls
+// it inline; the standalone command wraps it with a tiny CLI shim in
+// `start.ts`. Behavior: probe for an already-running daemon, fall through
+// to spawn if not, wait up to 5s for `/health`, and optionally open the
+// browser on success. Test seams (find / spawnServe / waitForDaemon /
+// openBrowser) let unit tests skip real process spawn.
+export interface StartDaemonOptions {
+  stateRoot?: string;
+  spawnedBy?: 'init' | 'user' | 'hook';
+  openBrowser?: boolean;
+  findRunningDaemon?: (stateRoot?: string) => Promise<RunningDaemon | null>;
+  spawnServe?: () => { pid: number } | null;
+  waitForDaemon?: (stateRoot?: string) => Promise<RunningDaemon | null>;
+  openBrowserFn?: (url: string) => void;
+}
+
+export interface StartDaemonResult {
+  daemonStarted: boolean;
+  port?: number;
+  spawned: boolean; // true if we actually fork()'d, false if reused existing
+  // When `spawned` is true and `daemonStarted` is false, this distinguishes
+  // "spawn() returned null" from "spawn succeeded but /health never 200'd".
+  // Both are user-visible failures but with different fix hints.
+  spawnFailed: boolean;
+}
+
+export async function runStartDaemonDetached(
+  options: StartDaemonOptions = {},
+): Promise<StartDaemonResult> {
+  const find = options.findRunningDaemon ?? findRunningDaemon;
+  const spawnFn =
+    options.spawnServe ?? (() => spawnServeDetached({ spawnedBy: options.spawnedBy ?? 'user' }));
+  const waitFn =
+    options.waitForDaemon ?? ((root) => waitForDaemonReady({ stateRoot: root, timeoutMs: 5000 }));
+  const openFn = options.openBrowserFn ?? ((url: string) => void openBrowser(url));
+
+  const existing = await find(options.stateRoot);
+  if (existing) {
+    if (options.openBrowser) openFn(`http://127.0.0.1:${existing.port}`);
+    return { daemonStarted: true, port: existing.port, spawned: false, spawnFailed: false };
+  }
+
+  const spawned = spawnFn();
+  if (!spawned) {
+    return { daemonStarted: false, spawned: true, spawnFailed: true };
+  }
+
+  const ready = await waitFn(options.stateRoot);
+  if (!ready) {
+    return { daemonStarted: false, spawned: true, spawnFailed: false };
+  }
+
+  if (options.openBrowser) openFn(`http://127.0.0.1:${ready.port}`);
+  return { daemonStarted: true, port: ready.port, spawned: true, spawnFailed: false };
+}
+
 export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   const write = options.write ?? defaultWrite;
   const ask = options.ask ?? defaultAsk;
@@ -229,16 +286,24 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
 
   // --- OS-level autostart (login item) -----------------------------------
   // Independent from auto_spawn_daemon: this one writes a per-user
-  // LaunchAgent / systemd --user unit / Task Scheduler task so the
+  // LaunchAgent / systemd --user unit / HKCU Run key value so the
   // daemon comes up after the user logs in, without any agent having to
   // fire first. We default `--yes` to true (opposite of auto_spawn) —
   // the registration is visible to the user (launchctl list / systemctl
-  // --user list / Task Scheduler UI) and is reversible via
+  // --user list / reg query) and is reversible via
   // `minspect uninstall-autostart` or `uninstall --all`.
+  //
+  // If the install throws (e.g. reg.exe failing on Windows with a
+  // permission error), we record autostart as `false` in config — never
+  // `true`. The previous shape wrote the user's "enable" choice even on
+  // failure, which made `minspect status` / `doctor` report "ok" forever
+  // even though no unit was actually registered. Recording the real
+  // state means the next status / doctor run surfaces the gap.
   if (cfg.autostart === undefined) {
     const enable = options.yes
       ? true
       : await ask('Start the daemon automatically when you log in? (recommended)', true);
+    let actuallyEnabled = false;
     if (enable) {
       try {
         const r = runInstallAutostart({
@@ -246,15 +311,22 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
           minspectBinPath: options.aiHistoryBin,
           persist: false, // we just wrote the explicit flag below
         });
+        actuallyEnabled = true;
         result.autostartEnabled = true;
         write(`  autostart: ${r.backend} → ${r.unitPath} (started: ${r.started})`);
       } catch (e) {
-        write(`  autostart skipped: ${(e as Error).message}`);
+        write(`  autostart install failed: ${(e as Error).message}`);
+        write(
+          '    fix: run `minspect install-autostart` to retry, or `minspect doctor` for details',
+        );
       }
     } else {
       write('  autostart: disabled');
     }
-    writeConfig({ ...readConfig(options.stateRoot), autostart: enable }, options.stateRoot);
+    writeConfig(
+      { ...readConfig(options.stateRoot), autostart: actuallyEnabled },
+      options.stateRoot,
+    );
   } else {
     result.autostartEnabled = cfg.autostart === true;
     write(`  autostart: ${cfg.autostart} (unchanged)`);
@@ -264,37 +336,33 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   // Detach-spawn so `minspect init` can exit cleanly and leave the daemon
   // running in the background. The user can close this terminal without
   // killing the server (the old inline `runServe` held the daemon hostage
-  // to the cmd window).
+  // to the cmd window). Delegates to `runStartDaemonDetached` so the
+  // standalone `minspect start` command can reuse the exact same flow.
   if (!options.skipServe) {
     write('');
-    const find = options.findRunningDaemon ?? findRunningDaemon;
-    const spawnFn = options.spawnServe ?? (() => spawnServeDetached({ spawnedBy: 'init' }));
-    const waitFn =
-      options.waitForDaemon ?? ((root) => waitForDaemonReady({ stateRoot: root, timeoutMs: 5000 }));
-    const openFn = options.openBrowser ?? ((url: string) => void openBrowser(url));
-
-    const existing = await find(options.stateRoot);
-    if (existing) {
-      write(`daemon already running on http://127.0.0.1:${existing.port} (pid ${existing.pid})`);
-      result.daemonStarted = true;
-      result.port = existing.port;
-      if (!(options.noOpen ?? false)) openFn(`http://127.0.0.1:${existing.port}`);
-    } else {
-      write('starting daemon (background)...');
-      const spawned = spawnFn();
-      if (!spawned) {
-        write("  couldn't spawn daemon; run 'minspect serve' manually to see errors");
+    const r = await runStartDaemonDetached({
+      stateRoot: options.stateRoot,
+      spawnedBy: 'init',
+      openBrowser: !(options.noOpen ?? false),
+      findRunningDaemon: options.findRunningDaemon,
+      spawnServe: options.spawnServe,
+      waitForDaemon: options.waitForDaemon,
+      openBrowserFn: options.openBrowser,
+    });
+    if (r.daemonStarted && r.port !== undefined) {
+      const live = await findRunningDaemon(options.stateRoot);
+      const pid = live?.pid ?? '?';
+      if (r.spawned) {
+        write(`daemon: http://127.0.0.1:${r.port} (pid ${pid})`);
       } else {
-        const ready = await waitFn(options.stateRoot);
-        if (!ready) {
-          write("  daemon did not come up within 5s; run 'minspect serve' manually to see errors");
-        } else {
-          write(`daemon: http://127.0.0.1:${ready.port} (pid ${ready.pid})`);
-          result.daemonStarted = true;
-          result.port = ready.port;
-          if (!(options.noOpen ?? false)) openFn(`http://127.0.0.1:${ready.port}`);
-        }
+        write(`daemon already running on http://127.0.0.1:${r.port} (pid ${pid})`);
       }
+      result.daemonStarted = true;
+      result.port = r.port;
+    } else if (r.spawnFailed) {
+      write("  couldn't spawn daemon; run 'minspect serve' manually to see errors");
+    } else {
+      write("  daemon did not come up within 5s; run 'minspect serve' manually to see errors");
     }
   }
 

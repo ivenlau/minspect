@@ -26,6 +26,26 @@ if (-not $Mode) {
     return
 }
 
+# Resolve the minspect state dir. The CLI defaults to
+# %LOCALAPPDATA%\minspect on Windows; we read it directly so we can
+# preserve the user's prior autostart intent across the switch.
+$StateDir = Join-Path $env:LOCALAPPDATA "minspect"
+$ConfigPath = Join-Path $StateDir "config.json"
+
+# Capture the autostart flag before we run uninstall --all, which would
+# otherwise flip it to false. After the switch we'll restore the user's
+# choice by re-running `install-autostart` only when they originally
+# had it enabled — explicit opt-out means explicit opt-out.
+$AutostartWasEnabled = $false
+if (Test-Path $ConfigPath) {
+    try {
+        $cfg = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($cfg.autostart -eq $true) { $AutostartWasEnabled = $true }
+    } catch {
+        # Malformed config — treat as "no preference", don't auto-re-register.
+    }
+}
+
 # Step 1: Clean up existing minspect
 if (Get-Command minspect -ErrorAction SilentlyContinue) {
     Write-Host "Uninstalling current minspect..."
@@ -47,6 +67,25 @@ if (Get-Command minspect -ErrorAction SilentlyContinue) {
 }
 
 if ($Mode -eq "clear") {
+    # `uninstall --all` above set `autostart: false` in config.json. That's
+    # truthful right now (nothing is installed) but it'd also suppress the
+    # autostart prompt on the next `minspect init` (init only asks when
+    # `cfg.autostart === undefined`). Drop the field so a future install
+    # gets a clean "have you decided?" pass instead of inheriting our
+    # temporary off-state. Leave `auto_spawn_daemon` alone — that one
+    # captures an ongoing user preference, not a per-install fact.
+    if (Test-Path $ConfigPath) {
+        try {
+            $cfg = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($cfg.PSObject.Properties["autostart"]) {
+                $cfg.PSObject.Properties.Remove("autostart")
+                $cfg | ConvertTo-Json | Set-Content $ConfigPath -Encoding UTF8
+                Write-Host "Cleared autostart field from config.json."
+            }
+        } catch {
+            # Malformed config — leave it alone.
+        }
+    }
     Write-Host "Done. minspect uninstalled."
     return
 }
@@ -83,3 +122,23 @@ if (-not (Get-Command minspect -ErrorAction SilentlyContinue)) {
 Write-Host ""
 Write-Host "Running minspect init..."
 minspect init
+
+# Step 5: Re-register autostart if the user originally had it enabled.
+#
+# `init` won't do this on its own: `uninstall --all` flipped
+# `cfg.autostart` to false in step 1, and init's autostart question
+# is gated on `cfg.autostart === undefined`. So without this step the
+# Task Scheduler task / launchd agent / systemd --user unit is gone
+# for good and the daemon won't come back on next login.
+#
+# If the user had explicitly disabled autostart before the switch,
+# we honour that and skip re-registration.
+if ($AutostartWasEnabled) {
+    Write-Host ""
+    Write-Host "Re-registering autostart (was enabled before switch)..."
+    try {
+        minspect install-autostart
+    } catch {
+        Write-Warning "install-autostart failed: $_. Run 'minspect doctor' to diagnose."
+    }
+}

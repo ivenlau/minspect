@@ -1,9 +1,24 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../config.js';
 import { runInit } from './init.js';
+
+// Mock child_process so init's autostart step doesn't actually try to
+// launchctl / systemctl / reg on the test machine. Each call to
+// execFileSync returns an empty buffer (exit code 0) by default; the
+// few cases that look at the output (reg query) get canned success
+// strings. Mirrors the mock in install-autostart.test.ts.
+vi.mock('node:child_process', async () => {
+  const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+  return {
+    ...actual,
+    execFileSync: vi.fn(actual.execFileSync),
+  };
+});
+const execFileSyncMock = execFileSync as unknown as ReturnType<typeof vi.fn>;
 
 // All prompts get wired to a deterministic `ask` function so we never hit
 // real stdin. Skip `serve` because bringing up the full collector mid-test
@@ -22,6 +37,17 @@ describe('runInit', () => {
     pluginPath = join(root, 'opencode', 'plugins', 'minspect.ts');
     cwd = join(root, 'notagit');
     mkdirSync(cwd, { recursive: true });
+    execFileSyncMock.mockReset();
+    execFileSyncMock.mockImplementation((cmd: string, args: string[] = []) => {
+      if (cmd === 'id' && args[0] === '-u') return Buffer.from('501\n');
+      if (cmd === 'launchctl' && args[0] === 'list')
+        return Buffer.from('com.ivenlau.minspect\t501\t...\n');
+      if (cmd === 'systemctl' && args[0] === '--user' && args[1] === 'is-active')
+        return Buffer.from('active\n');
+      if (cmd === 'reg' && args[0] === 'query') return Buffer.from('Success\n');
+      if (cmd === 'which' || cmd === 'where') return Buffer.from('/usr/bin/node\n');
+      return Buffer.from('');
+    });
   });
   afterEach(() => {
     try {
@@ -49,14 +75,13 @@ describe('runInit', () => {
     expect(result.installed.openCode).toBe(true);
     expect(result.installed.postCommit).toBe(false); // not a git repo
     expect(result.autoSpawnEnabled).toBe(false); // conservative default under --yes
-    // autostart defaults to true under --yes (opposite of auto_spawn)
-    // — but `install-autostart` requires a real `node` and `minspect`
-    // bin to be resolvable; under this test's `--fake/minspect` setup
-    // the install will throw, leaving autostartEnabled unset. The
-    // config flag is still set explicitly.
+    // autostart defaults to true under --yes (opposite of auto_spawn).
+    // With the child_process mock, the install succeeds on every
+    // platform, so the config flag is set to true. The inverse case
+    // (install fails → autostart: false) is exercised in the dedicated
+    // test further down.
     expect(readConfig(root).auto_spawn_daemon).toBe(false);
-    // autostart flag is written regardless of platform-install success.
-    expect(typeof readConfig(root).autostart).toBe('boolean');
+    expect(readConfig(root).autostart).toBe(true);
     // Files touched.
     expect(readFileSync(settingsPath, 'utf8')).toMatch(/__minspect_managed__/);
     expect(readFileSync(pluginPath, 'utf8')).toMatch(/minspect managed/);
@@ -227,6 +252,40 @@ describe('runInit', () => {
     });
     expect(autostartAsks).toBe(0);
     expect(readConfig(root).autostart).toBe(true);
+  });
+
+  it('records autostart=false when install throws (does not lie about success)', async () => {
+    // Force the install to fail by making the `reg add` call throw
+    // (mimics a permission error or a locked registry hive). The
+    // previous shape wrote `autostart: true` even on failure, which
+    // is what kept status / doctor showing "ok" forever on Windows
+    // machines where the autostart was never actually wired up.
+    execFileSyncMock.mockImplementation((cmd: string, args: string[] = []) => {
+      if (cmd === 'reg' && args[0] === 'add') {
+        throw new Error('ERROR: Access is denied.');
+      }
+      if (cmd === 'launchctl') throw new Error('not available');
+      if (cmd === 'systemctl') throw new Error('not available');
+      return Buffer.from('');
+    });
+
+    const lines: string[] = [];
+    await runInit({
+      yes: true,
+      stateRoot: root,
+      cwd,
+      settingsPath,
+      opencodePluginPath: pluginPath,
+      aiHistoryBin: '/fake/minspect',
+      detect: { claudeCodeInstalled: false, openCodeInstalled: false, codexSessions: false },
+      skipServe: true,
+      write: (line) => lines.push(line),
+    });
+    // Config reflects reality: not enabled.
+    expect(readConfig(root).autostart).toBe(false);
+    // User sees an actionable hint, not silent success.
+    expect(lines.some((l) => /install failed/i.test(l))).toBe(true);
+    expect(lines.some((l) => /install-autostart/i.test(l))).toBe(true);
   });
 
   it('handles --yes without any detected agent (noop happy path)', async () => {

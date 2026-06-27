@@ -5,15 +5,18 @@ import { platform } from 'node:os';
 // OS-level autostart backends, one per supported platform. Each backend is
 // user-space (no sudo / admin required) and survives across reboots by
 // piggy-backing on the OS's own login-session mechanism: launchd on macOS,
-// systemd --user (with a freedesktop-autostart fallback) on Linux, Task
-// Scheduler on Windows. See `docs/specs/cli.md` for the rationale and the
-// "autostart" canonical rules.
+// systemd --user (with a freedesktop-autostart fallback) on Linux, the
+// HKCU\...\Run registry value on Windows. The Windows backend is the
+// `scheduled-task` name in code (kept for historical reasons) even though
+// it no longer uses Task Scheduler — ONLOGON tasks require admin
+// elevation to register, so we use the Run key instead. See
+// `docs/specs/cli.md` for the rationale and the "autostart" canonical rules.
 
 export type AutostartBackend =
   | 'launchd' // macOS: ~/Library/LaunchAgents/com.ivenlau.minspect.plist
   | 'systemd' // Linux: ~/.config/systemd/user/minspect.service
   | 'xdg-autostart' // Linux fallback: ~/.config/autostart/minspect.desktop
-  | 'scheduled-task' // Windows: Task Scheduler "minspect daemon" (ONLOGON)
+  | 'scheduled-task' // Windows: HKCU\...\Run value "minspect-daemon" (reg add)
   | 'unsupported'; // catch-all for future / unknown platforms
 
 // What the autostart file should invoke. The install path for the CLI is
@@ -167,7 +170,10 @@ export function xdgAutostartDesktopPath(): string {
 }
 
 export function scheduledTaskName(): string {
-  return 'minspect daemon';
+  // The HKCU Run key value name. Hyphen, not space, so it survives any
+  // future path that does string tokenization on the value (the
+  // historical reason: schtasks was once too fragile around spaces).
+  return 'minspect-daemon';
 }
 
 // Re-export platform-specific planners so `install-autostart.ts` can pick

@@ -12,6 +12,7 @@ import {
   planXdgAutostart,
   resolveMinspectBinPath,
   resolveNodePath,
+  scheduledTaskName,
 } from './autostart/index.js';
 import { executeLaunchd, removeLaunchd } from './autostart/launchd.js';
 import { executeScheduledTask, removeScheduledTask } from './autostart/scheduled-task.js';
@@ -92,7 +93,7 @@ function resolveBackend(
         return {
           backend: 'scheduled-task',
           plan: planScheduledTask(ctx),
-          execute: (p) => executeScheduledTask(p),
+          execute: (p, c) => executeScheduledTask(p, c),
         };
     }
   }
@@ -122,7 +123,7 @@ function resolveBackend(
       return {
         backend: 'scheduled-task',
         plan: planScheduledTask(ctx),
-        execute: (p) => executeScheduledTask(p),
+        execute: (p, c) => executeScheduledTask(p, c),
       };
     default:
       throw new Error(
@@ -194,9 +195,20 @@ export function runInstallAutostart(options: InstallAutostartOptions = {}): Inst
       });
       started = true;
     } else if (backend === 'scheduled-task') {
-      execFileSync('schtasks', ['/Query', '/TN', 'minspect daemon'], {
-        stdio: ['ignore', 'ignore', 'ignore'],
-      });
+      // HKCU Run key backend: confirm the value landed by asking
+      // reg.exe. Same probe as planScheduledTask.isInstalled(); we
+      // repeat it here so the install result has a concrete "started"
+      // signal instead of just "didn't throw".
+      execFileSync(
+        'reg',
+        [
+          'query',
+          'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+          '/v',
+          scheduledTaskName(),
+        ],
+        { stdio: ['ignore', 'ignore', 'ignore'] },
+      );
       started = true;
     }
     // xdg-autostart: the .desktop file is registered by being present;

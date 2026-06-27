@@ -20,7 +20,11 @@ export interface MinspectConfig {
   //   - Linux:    ~/.config/systemd/user/minspect.service
   //               (falls back to ~/.config/autostart/minspect.desktop if
   //                systemd --user is unavailable)
-  //   - Windows:  Task Scheduler task "minspect daemon" (ONLOGON, RL LIMITED)
+  //   - Windows:  HKCU\Software\Microsoft\Windows\CurrentVersion\Run value
+  //               "minspect-daemon" (a `reg add` line that Explorer runs
+  //               at logon). Per-user, no admin required — earlier
+  //               Task Scheduler attempts failed at runtime because
+  //               ONLOGON registration needs elevation.
   // Independent from auto_spawn_daemon (lazy hook spawn). Toggled by
   // `minspect init` and the dedicated `install-autostart` / `uninstall-autostart`
   // subcommands. Persisted to <state_dir>/config.json.

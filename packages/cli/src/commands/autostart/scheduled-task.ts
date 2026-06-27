@@ -1,60 +1,59 @@
 import { execFileSync } from 'node:child_process';
-import { type AutostartContext, type AutostartPlan, scheduledTaskName } from './index.js';
+import type { AutostartContext, AutostartPlan } from './index.js';
 
-// Windows autostart backend: a Task Scheduler task. `ONLOGON` is the
-// user-side equivalent of macOS LaunchAgent: it fires when the user
-// signs in. `RL LIMITED` runs the task as the logged-in user without
-// admin elevation — same per-user contract as the other backends. The
-// daemon has no GUI, so we keep the task invisible (no /V verbose, no
-// display window).
+// Windows autostart backend: a per-user Run-key entry under
+// HKCU\Software\Microsoft\Windows\CurrentVersion\Run.
+//
+// We previously tried Task Scheduler (`schtasks /Create /SC ONLOGON`)
+// but creating an ONLOGON task from a non-elevated shell returns
+// "Access is denied" — ONLOGON triggers need admin to wire up the
+// session-attached token. The HKCU Run key, by contrast, is plain
+// per-user state that any interactive user can write, and Explorer
+// launches it at logon (same UX as ONLOGON for our headless daemon).
+//
+// The command line is stored as a single REG_SZ string with the node
+// bin + minspect bin + `serve --quiet` arguments. Registry value
+// parsing uses the same CommandLineToArgvW rules as a normal Win32
+// process invocation, so paths with spaces work as long as the inner
+// double quotes are intact. We escape any inner quotes by doubling
+// them (`"` → `\"`) per the reg.exe convention.
 
-function buildTrField(ctx: AutostartContext): string {
-  // /TR takes a single command line. We embed the full "node bin.js
-  // serve --quiet" so the task doesn't depend on PATH or npm shims —
-  // both are known to break under Task Scheduler (it runs as a
-  // non-interactive session with a sparse PATH). Paths are quoted
-  // because they may contain spaces ("C:\Program Files\nodejs\...").
-  // Backslashes are kept as-is; schtasks handles them.
+const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+const RUN_VALUE = 'minspect-daemon';
+
+// reg.exe interprets embedded `"` characters as REG_SZ delimiters, so
+// paths that contain quotes must escape them as `\"`. Real-world node
+// install paths and npm bin paths don't contain quotes today, but
+// forwarding the same convention makes the function robust.
+function escapeReg(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function buildCommand(ctx: AutostartContext): string {
   const { nodePath, minspectBinPath } = ctx.paths;
-  return `"${nodePath}" "${minspectBinPath}" serve --quiet`;
+  return `"${escapeReg(nodePath)}" "${escapeReg(minspectBinPath)}" serve --quiet`;
 }
 
 export function planScheduledTask(ctx: AutostartContext): AutostartPlan {
-  const taskName = scheduledTaskName();
+  const command = buildCommand(ctx);
   return {
     backend: 'scheduled-task',
-    unitPath: `\\${taskName}`,
-    unitBody: buildTrField(ctx),
-    // /F overwrites any pre-existing task with the same name (idempotent
-    // install). /IT ensures the task runs in the user's interactive
-    // session — without /IT, ONLOGON tasks run in a non-interactive
-    // session that can't access the user's profile (so `LOCALAPPDATA`
-    // resolution breaks).
+    // The "unit path" is the registry value, not a file path; we keep
+    // the same path-like string convention so status / doctor can
+    // render it without platform special-casing.
+    unitPath: `${RUN_KEY}\\${RUN_VALUE}`,
+    unitBody: command,
     enable: {
-      cmd: 'schtasks',
-      args: [
-        '/Create',
-        '/TN',
-        taskName,
-        '/TR',
-        buildTrField(ctx),
-        '/SC',
-        'ONLOGON',
-        '/RL',
-        'LIMITED',
-        '/F',
-        '/IT',
-      ],
+      cmd: 'reg',
+      args: ['add', RUN_KEY, '/v', RUN_VALUE, '/t', 'REG_SZ', '/d', command, '/f'],
     },
     disable: {
-      cmd: 'schtasks',
-      args: ['/Delete', '/TN', taskName, '/F'],
+      cmd: 'reg',
+      args: ['delete', RUN_KEY, '/v', RUN_VALUE, '/f'],
     },
     isInstalled: () => {
-      // `schtasks /Query` exits non-zero when the task doesn't exist.
-      // We swallow the throw and use the exit code to decide.
       try {
-        execFileSync('schtasks', ['/Query', '/TN', taskName], {
+        execFileSync('reg', ['query', RUN_KEY, '/v', RUN_VALUE], {
           stdio: ['ignore', 'ignore', 'ignore'],
         });
         return true;
@@ -65,11 +64,11 @@ export function planScheduledTask(ctx: AutostartContext): AutostartPlan {
   };
 }
 
-export function executeScheduledTask(plan: AutostartPlan): void {
-  // schtasks /Create both creates and "enables" the task — there's no
-  // separate /Enable. The unit body is irrelevant for Windows; we
-  // stashed the /TR string in plan.unitBody for `isInstalled` to
-  // re-derive if it ever needs to.
+export function executeScheduledTask(plan: AutostartPlan, _ctx: AutostartContext): void {
+  // reg.exe returns exit 0 on successful add, even when the value
+  // already exists (because of /f). stderr is intentionally ignored
+  // — reg.exe prints "The operation completed successfully." on stdout
+  // and we'd rather not leak that into CLI output.
   execFileSync(plan.enable.cmd, plan.enable.args, { stdio: 'ignore' });
 }
 
@@ -80,3 +79,7 @@ export function removeScheduledTask(plan: AutostartPlan): void {
     /* not installed */
   }
 }
+
+// Exported for unit tests. Not part of the public surface — install-autostart
+// goes through planScheduledTask, never these helpers directly.
+export const __testing__ = { escapeReg, buildCommand };

@@ -55,7 +55,10 @@ describe('uninstall-autostart', () => {
       if (cmd === 'systemctl' && args[0] === '--user' && args[1] === 'is-active') {
         return Buffer.from('inactive\n');
       }
-      if (cmd === 'schtasks' && args[0] === '/Query') throw new Error('not installed');
+      // reg query: by default the value is "not installed" (throw on
+      // query, so isInstalled() returns false on the uninstall path).
+      // Tests that need the inverse override mockImplementation per-call.
+      if (cmd === 'reg' && args[0] === 'query') throw new Error('not installed');
       if (cmd === 'which' || cmd === 'where') return Buffer.from('/usr/bin/node\n');
       return Buffer.from('');
     });
