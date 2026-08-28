@@ -3,11 +3,10 @@
   min-height: 0;
   display: flex;
 }
+/* Width comes from inline style (Resizer-driven); only paint here. */
 .side {
-  width: 240px;
   flex-shrink: 0;
   background: var(--bg-1);
-  border-right: 1px solid var(--border);
   overflow: auto;
 }
 .main {
@@ -19,10 +18,8 @@
   flex-direction: column;
 }
 .inspector {
-  width: 320px;
   flex-shrink: 0;
   background: var(--bg-1);
-  border-left: 1px solid var(--border);
   overflow: auto;
 }
 

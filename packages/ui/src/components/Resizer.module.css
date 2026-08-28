@@ -1,0 +1,21 @@
+.resizer {
+  width: 7px;
+  flex-shrink: 0;
+  margin: 0 -3px; /* 1px visual line with a wider invisible hit area */
+  z-index: 10;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  touch-action: none; /* pointer events own the gesture, no scroll */
+}
+.resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: var(--border);
+  transition: background 0.1s;
+}
+.resizer:hover::after,
+.resizer.dragging::after {
+  background: var(--accent);
+}

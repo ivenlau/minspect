@@ -145,6 +145,16 @@ export const STRINGS = tbl({
     zh: ({ msg }: VarBag) => `加载失败：${msg}`,
   },
 
+  // --- layout (panes) ----------------------------------------------------
+  'layout.resizeSidebar': {
+    en: 'Drag to resize sidebar (double-click to reset)',
+    zh: '拖动调整侧栏宽度（双击重置）',
+  },
+  'layout.resizeInspector': {
+    en: 'Drag to resize inspector (double-click to reset)',
+    zh: '拖动调整详情栏宽度（双击重置）',
+  },
+
   // --- sidebar (workspaces) ---------------------------------------------
   'sidebar.workspacesHeading': { en: 'WORKSPACES', zh: '工作区' },
   'sidebar.workspacesEmptyTitle': { en: 'No workspaces yet', zh: '暂无工作区' },
