@@ -273,6 +273,69 @@ describe('api', () => {
       url: `/api/workspaces/${encodeURIComponent('/nope')}`,
     });
     expect(res.statusCode).toBe(404);
+    // And the 404 must come from our handler, not a router miss — a router
+    // miss (param over find-my-way's maxParamLength) also breaks DELETE.
+    expect(res.json()).toEqual({ error: 'not_found' });
+  });
+
+  it('workspace routes match params over 100 chars (long Windows paths)', async () => {
+    // Real-world shape: mico workspace dirs run 110–130 chars and blew past
+    // find-my-way's default maxParamLength=100, making the workspace
+    // un-openable AND un-deletable (router 404, handler never ran).
+    const longWs = String.raw`C:\Users\admin\mico_workspaces_desktop-mico.mioffice.cn\39ca5ef7-6f62-4dd1-9884-ae7bd0d29161\0380c526d8370f66aa571edb\workdir`;
+    expect(longWs.length).toBeGreaterThan(100);
+    store.ingest({
+      type: 'session_start',
+      session_id: 's-long',
+      agent: 'claude-code',
+      workspace: longWs,
+      git,
+      timestamp: 3,
+    });
+
+    const get = await app.inject({
+      method: 'GET',
+      url: `/api/workspaces/${encodeURIComponent(longWs)}`,
+    });
+    expect(get.statusCode).toBe(200);
+    expect((get.json() as { path: string }).path).toBe(longWs);
+
+    const sessions = await app.inject({
+      method: 'GET',
+      url: `/api/workspaces/${encodeURIComponent(longWs)}/sessions`,
+    });
+    expect(sessions.statusCode).toBe(200);
+    expect((sessions.json() as { sessions: Array<{ id: string }> }).sessions[0]?.id).toBe('s-long');
+
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/workspaces/${encodeURIComponent(longWs)}`,
+    });
+    expect(del.statusCode).toBe(200);
+    const after = await app.inject({ method: 'GET', url: '/api/workspaces' });
+    expect(
+      (after.json() as { workspaces: Array<{ path: string }> }).workspaces.map((w) => w.path),
+    ).not.toContain(longWs);
+  });
+
+  it('workspace routes handle ids containing % (no double-decode)', async () => {
+    // Fastify decodes params once; a leftover decodeURIComponent in the
+    // handler would re-decode `%20`-looking sequences into different bytes.
+    const pctWs = 'D:\\projects\\report 100% done';
+    store.ingest({
+      type: 'session_start',
+      session_id: 's-pct',
+      agent: 'claude-code',
+      workspace: pctWs,
+      git,
+      timestamp: 4,
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/workspaces/${encodeURIComponent(pctWs)}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { path: string }).path).toBe(pctWs);
   });
 
   it('GET /api/workspaces/:path/files lists files with edit_count', async () => {

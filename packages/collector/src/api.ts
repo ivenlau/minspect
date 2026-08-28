@@ -328,7 +328,9 @@ export function registerApi(app: FastifyInstance, store: Store): void {
   // workspace branch is expanded.
   app.get('/api/workspaces/:path/sessions', async (req) => {
     const { path: pathParam } = req.params as { path: string };
-    const path = decodeURIComponent(pathParam);
+    // Fastify 5 already decodes params — a second decodeURIComponent would
+    // corrupt ids containing literal % (or throw on a lone %).
+    const path = pathParam;
     const rows = store.db
       .prepare(
         `SELECT id, workspace_id, agent, agent_version, started_at, ended_at
@@ -343,7 +345,7 @@ export function registerApi(app: FastifyInstance, store: Store): void {
   // practice even with 1000+ edits.
   app.get('/api/workspaces/:path', async (req, reply) => {
     const { path: pathParam } = req.params as { path: string };
-    const path = decodeURIComponent(pathParam);
+    const path = pathParam;
     const ws = store.db.prepare('SELECT id, created_at FROM workspaces WHERE id = ?').get(path) as
       | { id: string; created_at: number }
       | undefined;
@@ -667,7 +669,7 @@ export function registerApi(app: FastifyInstance, store: Store): void {
 
   app.delete('/api/workspaces/:path', async (req, reply) => {
     const { path: pathParam } = req.params as { path: string };
-    const path = decodeURIComponent(pathParam);
+    const path = pathParam;
     const deleted = store.deleteWorkspace(path);
     if (!deleted) {
       reply.code(404);
@@ -711,7 +713,7 @@ export function registerApi(app: FastifyInstance, store: Store): void {
   // decision to the UI (collapsed/expanded state, sort order, etc.).
   app.get('/api/workspaces/:path/files', async (req) => {
     const { path: pathParam } = req.params as { path: string };
-    const path = decodeURIComponent(pathParam);
+    const path = pathParam;
     const rows = store.db
       .prepare(
         `SELECT file_path, COUNT(*) AS edit_count, MAX(created_at) AS last_edited,

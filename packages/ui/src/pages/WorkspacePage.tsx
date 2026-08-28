@@ -54,12 +54,40 @@ export function WorkspacePage({ workspace }: WorkspacePageProps) {
   const [showDelete, setShowDelete] = useState(false);
 
   if (error) {
+    // Render the full page chrome even on load failure: the user must still
+    // be able to delete a broken workspace (stale row, deleted folder) from
+    // here — the detail API is exactly what failed, so hiding the delete
+    // button would leave no way out.
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>{pathTail(workspace)}</h1>
-        <p style={{ color: 'var(--danger)' }}>
+        <div className={styles.hdr}>
+          <h1 className={styles.title}>{pathTail(workspace)}</h1>
+          <span className={styles.pathText}>{workspace}</span>
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            className={styles.deleteBtn}
+            onClick={() => setShowDelete(true)}
+            title={t('workspace.deleteConfirmButton')}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+        <p style={{ color: 'var(--danger)', margin: 0 }}>
           {t('status.failedToLoadInline', { msg: error.message })}
         </p>
+        <div className={styles.statRow}>
+          <Stat label={t('workspace.stat.sessions')} value={0} />
+          <Stat label={t('workspace.stat.turns')} value={0} />
+          <Stat label={t('workspace.stat.edits')} value={0} />
+          <Stat label={t('workspace.stat.filesTouched')} value={0} />
+        </div>
+        {showDelete && (
+          <ConfirmDeleteWorkspaceModal
+            workspacePath={workspace}
+            onClose={() => setShowDelete(false)}
+          />
+        )}
       </div>
     );
   }

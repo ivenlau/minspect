@@ -23,7 +23,12 @@ const SERVER_CODE_MTIME = (() => {
 })();
 
 export function createServer(store: Store): FastifyInstance {
-  const app = Fastify({ logger: false });
+  // maxParamLength: find-my-way defaults to 100 and 404s the whole route —
+  // not the handler — when a param exceeds it. Workspace ids are absolute
+  // paths (Windows deep paths like `C:\Users\...\mico_workspaces\...\workdir`
+  // run 110–130 chars), so those workspaces became un-openable AND
+  // un-deletable. 1000 covers MAX_PATH plus URL-encoding headroom.
+  const app = Fastify({ logger: false, routerOptions: { maxParamLength: 1000 } });
 
   app.get('/health', async () => ({ status: 'ok' }));
 
