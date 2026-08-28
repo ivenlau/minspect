@@ -13,6 +13,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePoll } from '../api';
 import { EmptyState } from '../components/EmptyState';
 import { Hunk } from '../components/Hunk';
+import { Resizer } from '../components/Resizer';
+import { REPLAY_INSPECTOR_PANE, useResizablePane } from '../components/paneWidths';
 import { RevertModal, type RevertTarget } from '../features/revert/RevertModal';
 import { type ReplayStep, flattenReplaySteps } from '../features/session/flattenReplaySteps';
 import type { ReviewResp } from '../features/session/types';
@@ -28,6 +30,7 @@ export interface ReplayPageProps {
 export function ReplayPage({ workspace, session }: ReplayPageProps) {
   void workspace;
   const { t } = useLang();
+  const replayPane = useResizablePane(REPLAY_INSPECTOR_PANE);
   const url = `/api/review?session=${encodeURIComponent(session)}`;
   const { data, error } = usePoll<ReviewResp>(url, 10_000);
   const steps = useMemo(() => flattenReplaySteps(data?.turns ?? []), [data]);
@@ -127,7 +130,16 @@ export function ReplayPage({ workspace, session }: ReplayPageProps) {
             onRevert={(target) => setRevertTarget(target)}
           />
         </div>
-        <aside className={styles.inspectorPane}>
+        <Resizer
+          side="right"
+          width={replayPane.width}
+          min={REPLAY_INSPECTOR_PANE.min}
+          max={REPLAY_INSPECTOR_PANE.max}
+          onResize={replayPane.onResize}
+          onReset={replayPane.onReset}
+          label={t('layout.resizeInspector')}
+        />
+        <aside className={styles.inspectorPane} style={{ width: replayPane.width }}>
           <StepInspector
             step={step}
             prev={prev ?? null}

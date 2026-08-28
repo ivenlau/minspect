@@ -4,7 +4,6 @@
   min-height: 0;
 }
 .turnNav {
-  width: 240px;
   flex-shrink: 0;
   background: var(--bg-1);
   border-right: 1px solid var(--border);

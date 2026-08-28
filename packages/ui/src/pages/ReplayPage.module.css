@@ -119,7 +119,6 @@
   background: var(--bg-0);
 }
 .inspectorPane {
-  width: 320px;
   flex-shrink: 0;
   background: var(--bg-1);
   border-left: 1px solid var(--border);

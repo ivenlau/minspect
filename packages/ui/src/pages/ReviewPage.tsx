@@ -14,6 +14,8 @@ import { ClickRow } from '../components/ClickRow';
 import { DropdownPicker } from '../components/DropdownPicker';
 import { EmptyState } from '../components/EmptyState';
 import { Hunk } from '../components/Hunk';
+import { Resizer } from '../components/Resizer';
+import { REVIEW_TURNNAV_PANE, useResizablePane } from '../components/paneWidths';
 import { RevertModal, type RevertTarget } from '../features/revert/RevertModal';
 import type { ReviewResp, ReviewTurn } from '../features/session/types';
 import { useLang } from '../i18n';
@@ -54,6 +56,7 @@ interface FilterState {
 export function ReviewPage({ workspace, session }: ReviewPageProps) {
   const { t } = useLang();
   void workspace;
+  const turnNavPane = useResizablePane(REVIEW_TURNNAV_PANE);
   const url = `/api/review?session=${encodeURIComponent(session)}`;
   const { data, error } = usePoll<ReviewResp>(url, 10_000);
   const [filter, setFilter] = useState<FilterState>({
@@ -107,7 +110,7 @@ export function ReviewPage({ workspace, session }: ReviewPageProps) {
 
   return (
     <div className={styles.outer}>
-      <aside className={styles.turnNav}>
+      <aside className={styles.turnNav} style={{ width: turnNavPane.width }}>
         <div className={styles.turnNavHdr}>
           <span className={styles.turnNavTitle}>{t('review.turns')}</span>
           <span className={styles.turnNavSpacer} />
@@ -153,6 +156,15 @@ export function ReviewPage({ workspace, session }: ReviewPageProps) {
           </div>
         )}
       </aside>
+      <Resizer
+        side="left"
+        width={turnNavPane.width}
+        min={REVIEW_TURNNAV_PANE.min}
+        max={REVIEW_TURNNAV_PANE.max}
+        onResize={turnNavPane.onResize}
+        onReset={turnNavPane.onReset}
+        label={t('layout.resizeSidebar')}
+      />
 
       <div className={styles.main}>
         <div className={styles.filter}>

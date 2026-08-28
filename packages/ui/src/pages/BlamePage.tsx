@@ -22,6 +22,8 @@ import {
 import { usePoll } from '../api';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
+import { Resizer } from '../components/Resizer';
+import { BLAME_INSPECTOR_PANE, useResizablePane } from '../components/paneWidths';
 import { CompareModal } from '../features/blame/CompareModal';
 import { RevisionsPopover, linesForEdit } from '../features/blame/RevisionsPopover';
 import { useVirtualRows } from '../features/blame/useVirtualRows';
@@ -133,6 +135,7 @@ export interface BlamePageProps {
 
 export function BlamePage({ workspace, file }: BlamePageProps) {
   const { t } = useLang();
+  const blamePane = useResizablePane(BLAME_INSPECTOR_PANE);
 
   // Historical revision viewer (card 52). null = showing current state;
   // non-null = showing the file as it stood after the named edit landed.
@@ -456,7 +459,16 @@ export function BlamePage({ workspace, file }: BlamePageProps) {
             );
           })()}
       </div>
-      <aside className={styles.inspectorPane}>
+      <Resizer
+        side="right"
+        width={blamePane.width}
+        min={BLAME_INSPECTOR_PANE.min}
+        max={BLAME_INSPECTOR_PANE.max}
+        onResize={blamePane.onResize}
+        onReset={blamePane.onReset}
+        label={t('layout.resizeInspector')}
+      />
+      <aside className={styles.inspectorPane} style={{ width: blamePane.width }}>
         <LineInspector
           file={file}
           selectedLine={selectedLine}
