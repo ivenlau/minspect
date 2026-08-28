@@ -18,7 +18,9 @@ import {
 import { ClickRow } from '../../components/ClickRow';
 import { EmptyState } from '../../components/EmptyState';
 import { LiveDot } from '../../components/Skeleton';
+import { fmtDateTime, fmtTimeOfDay } from '../../components/time';
 import { useLang } from '../../i18n';
+import { WIDE_SIDEBAR_PX, useSidebarWidth } from '../../layout/sidebarWidth';
 import { hrefFor, navigate } from '../../router';
 import styles from './WorkspacesSidebar.module.css';
 
@@ -115,8 +117,7 @@ function pathTail(p: string): string {
 }
 
 function timeOfDay(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  return fmtTimeOfDay(ts);
 }
 
 function agentShort(agent: string | null | undefined): string {
@@ -210,6 +211,7 @@ function SessionList({
   activeSession?: string | null;
 }) {
   const { t } = useLang();
+  const sideW = useSidebarWidth();
   const url = `/api/workspaces/${encodeURIComponent(workspace)}/sessions`;
   const { data } = usePoll<SessionsResp>(url, 5000);
   const sessions = data?.sessions ?? [];
@@ -237,7 +239,9 @@ function SessionList({
             )}
             <span className={styles.sessId}>{s.id.slice(0, 8)}</span>
             <span className={styles.agentTag}>{agentShort(s.agent)}</span>
-            <span className={styles.sessTime}>{timeOfDay(s.started_at)}</span>
+            <span className={styles.sessTime}>
+              {sideW >= WIDE_SIDEBAR_PX ? fmtDateTime(s.started_at) : timeOfDay(s.started_at)}
+            </span>
           </ClickRow>
         );
       })}

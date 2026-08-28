@@ -10,6 +10,7 @@ import {
 } from '../components/paneWidths';
 import { useLang } from '../i18n';
 import styles from './ThreePane.module.css';
+import { SidebarWidthContext } from './sidebarWidth';
 
 export interface ShellProps {
   topBar: ReactNode;
@@ -63,9 +64,11 @@ export function ThreePane({ sidebar, inspector, children }: ThreePaneProps) {
 
   return (
     <div className={styles.root}>
-      <aside className={styles.side} style={{ width: sideW }}>
-        {sidebar}
-      </aside>
+      <SidebarWidthContext.Provider value={sideW}>
+        <aside className={styles.side} style={{ width: sideW }}>
+          {sidebar}
+        </aside>
+      </SidebarWidthContext.Provider>
       <Resizer
         side="left"
         width={sideW}

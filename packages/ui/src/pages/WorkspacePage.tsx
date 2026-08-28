@@ -5,6 +5,7 @@ import { Card } from '../components/Card';
 import { ClickRow } from '../components/ClickRow';
 import { EmptyState } from '../components/EmptyState';
 import { LiveDot } from '../components/Skeleton';
+import { fmtDateTime } from '../components/time';
 import { ConfirmDeleteWorkspaceModal } from '../features/workspaces/ConfirmDeleteWorkspaceModal';
 import { useLang } from '../i18n';
 import { Inspector } from '../layout/Inspector';
@@ -36,12 +37,8 @@ function pathTail(p: string): string {
   const parts = p.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? p;
 }
-function fmtTime(ts: number): string {
-  const d = new Date(ts);
-  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return `${date} ${time}`;
-}
+// Same format as the sidebar wide layout — see components/time.ts.
+const fmtTime = fmtDateTime;
 
 export interface WorkspacePageProps {
   workspace: string;
