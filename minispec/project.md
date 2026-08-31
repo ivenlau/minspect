@@ -2,7 +2,7 @@
 
 `minspect` — Git blame for AI coding agents。记录 Claude Code / Codex CLI / OpenCode 等 agent 对代码库的改动，把 *session → turn → prompt → reasoning → hunk → line* 这条链回填到 UI 上，让用户看清 AI 改了什么、为什么改、改的过程。
 
-工程骨架与首期功能已就位（见 `packages/`），后续按 minispec change card 持续迭代。当前已发布 v0.1.6。
+工程骨架与首期功能已就位（见 `packages/`），后续按 minispec change card 持续迭代。当前已发布 v0.1.8。
 
 ## Stack
 
@@ -67,4 +67,4 @@
 - mode: refreshed
 - context: v0.1.6 状态刷新；新增 autostart / 平台集成领域
 - generated_at: 2026-04-27
-- updated_at: 2026-06-26
+- updated_at: 2026-08-31

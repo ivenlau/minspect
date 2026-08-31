@@ -267,11 +267,22 @@ describe('install-autostart', () => {
     expect(args).toContain('REG_SZ');
     expect(args).toContain('/d');
     expect(args).toContain('/f');
-    // The /d value is the escaped, fully-quoted command line.
+    // The /d value names the wscript wrapper (the daemon must not be
+    // launched as a bare console app — its window would be closable),
+    // with the wrapper path stored verbatim.
     const dIdx = args.indexOf('/d');
-    expect(args[dIdx + 1]).toContain('C:\\\\n.exe');
-    expect(args[dIdx + 1]).toContain('C:\\\\m.js');
-    expect(args[dIdx + 1]).toContain('serve --quiet');
+    expect(args[dIdx + 1]).toBe(`wscript.exe "${join(root, 'minspect-daemon.vbs')}"`);
+    expect(args[dIdx + 1]).not.toMatch(/\\\\/);
+    // The wrapper exists in the state dir and carries the daemon command
+    // with the node/bin paths verbatim (no backslash doubling).
+    const vbsPath = join(root, 'minspect-daemon.vbs');
+    expect(existsSync(vbsPath)).toBe(true);
+    const vbsBody = readFileSync(vbsPath, 'utf16le');
+    // The file holds the VBScript-escaped literal (quotes doubled), with
+    // the node/bin paths themselves verbatim.
+    expect(vbsBody).toContain('"""C:\\n.exe"" ""C:\\m.js"" serve --quiet"');
+    expect(vbsBody).not.toContain('\\\\');
+    expect(vbsBody).toContain(', 0, False');
   });
 
   it('planUninstallAutostart reports installed state without side effects', () => {

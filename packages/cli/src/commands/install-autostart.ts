@@ -274,7 +274,7 @@ export function executeUninstallAutostart(options: InstallAutostartOptions = {})
   if (backend === 'launchd') removeLaunchd(plan);
   else if (backend === 'systemd') removeSystemd(plan);
   else if (backend === 'xdg-autostart') removeXdgAutostart(plan);
-  else if (backend === 'scheduled-task') removeScheduledTask(plan);
+  else if (backend === 'scheduled-task') removeScheduledTask(plan, ctx);
 
   if (options.persist !== false) {
     const cfg = readConfig(options.stateRoot);
