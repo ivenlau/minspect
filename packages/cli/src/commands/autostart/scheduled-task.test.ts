@@ -79,12 +79,20 @@ describe('scheduled-task HKCU Run key', () => {
   });
 
   describe('daemonVbsPath', () => {
-    it('lands in the state root', () => {
+    it('lands in the state root with Windows separators on any host', () => {
       const p = daemonVbsPath({
         stateRoot: 'C:\\state',
         paths: { nodePath: 'C:\\n.exe', minspectBinPath: 'C:\\m.js' },
       });
-      expect(p).toBe(join('C:\\state', 'minspect-daemon.vbs'));
+      expect(p).toBe('C:\\state\\minspect-daemon.vbs');
+    });
+
+    it('trims trailing separators from the state root', () => {
+      const p = daemonVbsPath({
+        stateRoot: 'C:\\state\\',
+        paths: { nodePath: 'C:\\n.exe', minspectBinPath: 'C:\\m.js' },
+      });
+      expect(p).toBe('C:\\state\\minspect-daemon.vbs');
     });
 
     it('falls back to the default state dir when stateRoot is empty', () => {
@@ -131,7 +139,7 @@ describe('planScheduledTask', () => {
       stateRoot: root,
       paths: { nodePath: 'C:\\n.exe', minspectBinPath: 'C:\\m.js' },
     });
-    expect(plan.unitBody).toBe(`wscript.exe "${join(root, 'minspect-daemon.vbs')}"`);
+    expect(plan.unitBody).toBe(`wscript.exe "${root}\\minspect-daemon.vbs"`);
   });
 
   it('enable command is reg add with the documented flags and no doubled backslashes', () => {
@@ -148,7 +156,7 @@ describe('planScheduledTask', () => {
       '/t',
       'REG_SZ',
       '/d',
-      `wscript.exe "${join(root, 'minspect-daemon.vbs')}"`,
+      `wscript.exe "${root}\\minspect-daemon.vbs"`,
       '/f',
     ]);
     // The /d data is stored verbatim by reg.exe — a doubled backslash

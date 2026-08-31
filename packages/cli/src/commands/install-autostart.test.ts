@@ -271,7 +271,7 @@ describe('install-autostart', () => {
     // launched as a bare console app — its window would be closable),
     // with the wrapper path stored verbatim.
     const dIdx = args.indexOf('/d');
-    expect(args[dIdx + 1]).toBe(`wscript.exe "${join(root, 'minspect-daemon.vbs')}"`);
+    expect(args[dIdx + 1]).toBe(`wscript.exe "${root}\\minspect-daemon.vbs"`);
     expect(args[dIdx + 1]).not.toMatch(/\\\\/);
     // The wrapper exists in the state dir and carries the daemon command
     // with the node/bin paths verbatim (no backslash doubling).

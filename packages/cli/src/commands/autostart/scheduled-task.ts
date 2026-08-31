@@ -42,10 +42,19 @@ const VBS_FILE = 'minspect-daemon.vbs';
 // an OS component, not a user installation.
 const VBS_LAUNCHER = 'wscript.exe';
 
-// The "unit path" is the registry value, not a file path; we keep
-// the same path-like string convention so status / doctor can
-// render it without platform special-casing.
+// The wrapper path as it must appear in the Run value and inside wscript's
+// command line: ALWAYS Windows separators, regardless of the host building
+// the registration (CI runs the planner on Linux, where path.join would
+// splice in "/" and store a mixed-separator path that only works by luck).
 export function daemonVbsPath(ctx: AutostartContext): string {
+  const base = (ctx.stateRoot || getStateDir()).replace(/[\\/]+$/, '');
+  return `${base}\\${VBS_FILE}`;
+}
+
+// The same wrapper on this host's filesystem — the path execute/remove
+// actually touch. On a real Windows install this is byte-identical to
+// daemonVbsPath(); on non-Windows hosts (tests) it stays a valid path.
+function daemonVbsFsPath(ctx: AutostartContext): string {
   return join(ctx.stateRoot || getStateDir(), VBS_FILE);
 }
 
@@ -106,7 +115,7 @@ export function executeScheduledTask(plan: AutostartPlan, ctx: AutostartContext)
   // Write the wrapper before registering the Run value so a logon
   // between the two steps can't hit a dangling value. The state dir
   // normally exists by now; create it defensively for fresh installs.
-  const vbsPath = daemonVbsPath(ctx);
+  const vbsPath = daemonVbsFsPath(ctx);
   mkdirSync(dirname(vbsPath), { recursive: true });
   // UTF-16 LE with BOM: WScript detects the BOM, so non-ASCII install
   // paths survive regardless of the system codepage.
@@ -132,7 +141,7 @@ export function removeScheduledTask(plan: AutostartPlan, ctx: AutostartContext):
   // moved since install) leaves nothing to do — uninstall must not
   // fail over it.
   try {
-    rmSync(daemonVbsPath(ctx), { force: true });
+    rmSync(daemonVbsFsPath(ctx), { force: true });
   } catch {
     /* ignore */
   }
