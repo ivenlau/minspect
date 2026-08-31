@@ -1,7 +1,19 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mock the OS-side tools (`reg delete`, daemon probes, …) that the --all
+// path shells out to. Without this, a Windows test run deleted the REAL
+// HKCU Run key value minspect-daemon (registry access is not sandboxed by
+// env redirection). Tests that need specific behaviour override via
+// vi.mocked(execFileSync).mockImplementationOnce.
+vi.mock('node:child_process', async () => {
+  const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+  return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
+});
+
 import {
   BEGIN_MARKER as OC_BEGIN,
   END_MARKER as OC_END,
@@ -23,9 +35,18 @@ describe('runUninstall', () => {
     pluginPath = join(root, 'opencode', 'plugins', 'minspect.ts');
     repoRoot = join(root, 'repo');
     mkdirSync(join(repoRoot, '.git'), { recursive: true });
+    vi.mocked(execFileSync).mockReset();
+    vi.mocked(execFileSync).mockImplementation((cmd: string, args: string[] = []) => {
+      // Default: nothing is installed; any other OS call "succeeds" as a
+      // no-op so a stray real invocation can never reach the host.
+      if (cmd === 'reg' && args[0] === 'query') throw new Error('not installed');
+      if (cmd === 'id' && args[0] === '-u') return Buffer.from('501\n');
+      return Buffer.from('');
+    });
   });
 
   afterEach(() => {
+    vi.mocked(execFileSync).mockReset();
     try {
       rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     } catch {

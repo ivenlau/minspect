@@ -67,6 +67,7 @@
 - **autostart 与 auto_spawn_daemon 独立**（卡 49）：两者是 `<state_dir>/config.json` 的两个独立 boolean，互不影响。`init --yes` 默认 `autostart=true` / `auto_spawn_daemon=false`：autostart 写 unit 文件用户可看到、副作用显式；auto_spawn 偷偷 spawn 后台进程、副作用隐式。默认行为与隐式程度匹配。
 - **autostart 默认平台分支**（卡 49）：`process.platform === 'darwin'` → launchd；`'linux'` → systemd（`systemctl --user show-environment` 探测 bus 可用），bus 不可用降级到 xdg-autostart；`'win32'` → scheduled-task；其他平台 → `unsupported`，不抛错，给出提示让用户手动 `minspect serve`。
 - **`uninstall --all` 撤销 autostart 在 stop-daemon 之前**（卡 49）：保证 unit 文件先于 daemon 停止被清掉；如果反过来，daemon 进程可能带着已被撤的 unit 留下孤儿 PID。
+- **CLI 测试套件必须 hermetic**（卡 `20260831-sandbox-cli-tests`）：`packages/cli/vitest.config.ts` 挂 `test-setup.ts` 沙箱，把 `HOME` / `USERPROFILE` / `LOCALAPPDATA` / `XDG_CONFIG_HOME` / `XDG_STATE_HOME` 重定向到 per-run 临时目录——Windows 的 `os.homedir()` 读 `USERPROFILE`（不吃 `HOME`），只改 `HOME` 的旧做法在 Windows 上会打穿真实用户文件。涉 OS 子进程的用例（`reg` / `launchctl` / `systemctl`）必须 mock `child_process`：env 沙箱拦不住 `reg delete` 这类注册表操作（事发：Windows 跑套件把真实 `~/.claude/settings.json` 的 hook、opencode 插件与 HKCU Run 键 `minspect-daemon` 值全部删掉，重启后 daemon 无从自启）。验收方式：套件前后对真实文件哈希 / mtime / `reg query` 做 diff，必须零变化。
 
 ## Packaging（卡 46）
 
