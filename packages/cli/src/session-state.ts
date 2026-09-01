@@ -2,6 +2,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { getSessionStatePath } from './paths.js';
 
+// Worktree snapshot backing Bash-caused file-edit attribution (see
+// bash-edits.ts). Absent until the first SessionStart / refresh.
+export interface BashSnapshot {
+  root: string;
+  status: Record<string, string>;
+  rels: Record<string, string>;
+  contents: Record<string, string>;
+}
+
 // Per-session CLI state, persisted across hook invocations so we can correlate
 // UserPromptSubmit → PreToolUse → PostToolUse → Stop into the same turn.
 export interface SessionState {
@@ -13,6 +22,7 @@ export interface SessionState {
   // PreToolUse stashes file contents here, keyed by file_path. PostToolUse
   // pops them to construct file_edits.
   pretool_before: Record<string, string | null>;
+  bash_snapshot?: BashSnapshot | null;
 }
 
 function defaultState(sessionId: string): SessionState {

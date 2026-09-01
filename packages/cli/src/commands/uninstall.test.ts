@@ -36,7 +36,7 @@ describe('runUninstall', () => {
     repoRoot = join(root, 'repo');
     mkdirSync(join(repoRoot, '.git'), { recursive: true });
     vi.mocked(execFileSync).mockReset();
-    vi.mocked(execFileSync).mockImplementation((cmd: string, args: string[] = []) => {
+    vi.mocked(execFileSync).mockImplementation((cmd: string, args: readonly string[] = []) => {
       // Default: nothing is installed; any other OS call "succeeds" as a
       // no-op so a stray real invocation can never reach the host.
       if (cmd === 'reg' && args[0] === 'query') throw new Error('not installed');

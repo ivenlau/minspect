@@ -10,6 +10,7 @@ import {
   parse,
 } from '@minspect/adapter-claude-code';
 import { type Event, readGitState } from '@minspect/core';
+import { type BashFileEdit, diffWorktree, snapshotWorktree } from '../bash-edits.js';
 import { type SessionState, readSessionState, writeSessionState } from '../session-state.js';
 import { sendEvent } from '../transport.js';
 
@@ -76,6 +77,22 @@ function buildFileEdits(
   });
 }
 
+// File changes made through the Bash tool (heredoc `cat >`, sed -i, tee,
+// …) carry no file_path in the payload — attribute them by diffing the
+// worktree snapshot stored in the session state. Always refreshes the
+// snapshot so the next call starts from the post-call state. Returns null
+// when there is no baseline (first call of a session), outside a git
+// repo, or when nothing changed — those still record a plain tool_call.
+function collectBashFileEdits(state: SessionState, cwd: string): BashFileEdit[] | null {
+  const after = snapshotWorktree(cwd);
+  if (!after) return null;
+  const before = state.bash_snapshot;
+  state.bash_snapshot = after;
+  if (!before) return null;
+  const edits = diffWorktree(before, after);
+  return edits.length > 0 ? edits : null;
+}
+
 export async function runCapture(options: CaptureOptions = {}): Promise<Event[]> {
   const payload = options.payload ?? (JSON.parse(await readStdinJson()) as ClaudeCodePayload);
   const state = readSessionState(payload.session_id, options.stateRoot);
@@ -96,6 +113,7 @@ export async function runCapture(options: CaptureOptions = {}): Promise<Event[]>
           current_turn_started_at: null,
           tool_call_idx: 0,
           pretool_before: {},
+          bash_snapshot: snapshotWorktree(payload.cwd),
         },
         options.stateRoot,
       );
@@ -132,7 +150,14 @@ export async function runCapture(options: CaptureOptions = {}): Promise<Event[]>
 
     case 'PostToolUse': {
       const tool_call_id = randomUUID();
-      const file_edits = buildFileEdits(state, payload.tool_name, payload.tool_input);
+      let file_edits = buildFileEdits(state, payload.tool_name, payload.tool_input);
+      // File changes made through the Bash tool carry no file_path —
+      // attribute them via the worktree snapshot instead.
+      let refreshed = false;
+      if (!file_edits && payload.cwd) {
+        file_edits = collectBashFileEdits(state, payload.cwd) ?? undefined;
+        refreshed = true;
+      }
       events.push(
         ...parse(payload, {
           timestamp: now,
@@ -148,6 +173,11 @@ export async function runCapture(options: CaptureOptions = {}): Promise<Event[]>
       // tool calls with different intent.
       for (const fp of affectedFilePaths(payload.tool_name, payload.tool_input)) {
         delete state.pretool_before[fp];
+      }
+      // Refresh the worktree snapshot so the next Bash diff starts from the
+      // post-call state (the Bash branch already refreshed it).
+      if (!refreshed && payload.cwd) {
+        state.bash_snapshot = snapshotWorktree(payload.cwd) ?? state.bash_snapshot;
       }
       writeSessionState(state, options.stateRoot);
       break;

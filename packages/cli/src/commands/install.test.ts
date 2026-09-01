@@ -62,6 +62,46 @@ describe('runInstall', () => {
     }
   });
 
+  it('dedupes legacy unmarked minspect hook blocks', () => {
+    // Pre-marker installs wrote our hooks without __minspect_managed__ —
+    // marker-based stripping could never remove them, so blocks piled up
+    // (every tool call ran capture twice).
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          PostToolUse: [
+            {
+              matcher: 'Edit|Write|MultiEdit|Bash',
+              hooks: [{ type: 'command', command: '"C:\\old\\bin.cjs" capture --event post_tool' }],
+            },
+            {
+              matcher: 'Edit|Write|MultiEdit|Bash',
+              hooks: [
+                {
+                  type: 'command',
+                  __minspect_managed__: true,
+                  command: '"C:\\new\\bin.cjs" capture --event post_tool',
+                },
+              ],
+            },
+            { hooks: [{ type: 'command', command: 'user-tool --foo' }] },
+          ],
+        },
+      }),
+    );
+    runInstall({ agent: 'claude-code', settingsPath, aiHistoryBin: '/bin/minspect' });
+    const s = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+    };
+    const ours = (s.hooks.PostToolUse ?? []).filter((e) =>
+      e.hooks.some((h) => h.command.includes('capture --event')),
+    );
+    expect(ours.length).toBe(1);
+    const commands = (s.hooks.PostToolUse ?? []).flatMap((e) => e.hooks.map((h) => h.command));
+    expect(commands).toContain('user-tool --foo');
+  });
+
   it('preserves user-owned unrelated hooks', () => {
     writeFileSync(
       settingsPath,

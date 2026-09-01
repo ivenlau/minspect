@@ -51,12 +51,23 @@ function desiredHooks(bin: string): Record<string, HookEntry[]> {
   };
 }
 
+function isMinspectHook(h: { command?: string }): boolean {
+  // Older installs wrote our hooks without the marker, so marker presence
+  // alone can't dedupe them — match the command shape as well. (A command
+  // containing `capture --event ` is our CLI's invocation syntax, which
+  // we own.)
+  return (
+    (h as { [MARKER]?: true })[MARKER] === true || (h.command ?? '').includes('capture --event ')
+  );
+}
+
 function stripOurBlocks(entries: HookEntry[]): HookEntry[] {
-  // Remove entries whose hooks are entirely ours (marker present).
+  // Remove entries whose hooks are entirely ours — identified by marker
+  // or by our capture command (covers pre-marker blocks).
   return entries
     .map((e) => ({
       ...e,
-      hooks: e.hooks.filter((h) => !(h as { [MARKER]?: true })[MARKER]),
+      hooks: e.hooks.filter((h) => !isMinspectHook(h)),
     }))
     .filter((e) => e.hooks.length > 0);
 }
